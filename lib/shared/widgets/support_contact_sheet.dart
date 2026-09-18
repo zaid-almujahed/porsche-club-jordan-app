@@ -1,0 +1,229 @@
+import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import 'package:pcj_v4/core/theme/app_theme.dart';
+import 'package:pcj_v4/shared/widgets/app_widgets.dart';
+
+/// Opens an in-app support message form and then hands the drafted message to
+/// the device email application.
+///
+/// No support endpoint or approved support mailbox has been supplied yet.
+/// Until it is, the member's email is deliberately used as the recipient.
+Future<void> showSupportContactSheet({
+  required BuildContext context,
+  required String senderEmail,
+  String initialTopic = 'Membership application',
+}) async {
+  final String email = senderEmail.trim();
+  if (email.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('No email address is available.')),
+    );
+    return;
+  }
+
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => _SupportContactSheet(
+      senderEmail: email,
+      initialTopic: initialTopic,
+    ),
+  );
+}
+
+class _SupportContactSheet extends StatefulWidget {
+  const _SupportContactSheet({
+    required this.senderEmail,
+    required this.initialTopic,
+  });
+
+  final String senderEmail;
+  final String initialTopic;
+
+  @override
+  State<_SupportContactSheet> createState() => _SupportContactSheetState();
+}
+
+class _SupportContactSheetState extends State<_SupportContactSheet> {
+  static const List<String> _topics = <String>[
+    'Membership application',
+    'Membership payment',
+    'Account access',
+    'Event registration',
+    'Shop or order',
+    'Other',
+  ];
+
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  late final TextEditingController _bodyController;
+  late String _topic = _topics.contains(widget.initialTopic)
+      ? widget.initialTopic
+      : _topics.first;
+  bool _isOpeningMail = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _bodyController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _bodyController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _openMailComposer() async {
+    if (!_formKey.currentState!.validate() || _isOpeningMail) return;
+
+    setState(() => _isOpeningMail = true);
+    final Uri message = Uri(
+      scheme: 'mailto',
+      path: widget.senderEmail,
+      queryParameters: <String, String>{
+        'subject': 'PCJ Support - $_topic',
+        'body': '${_bodyController.text.trim()}\n\n'
+            'Reply-to: ${widget.senderEmail}',
+      },
+    );
+
+    bool opened = false;
+    try {
+      opened = await launchUrl(
+        message,
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (_) {
+      opened = false;
+    }
+
+    if (!mounted) return;
+    setState(() => _isOpeningMail = false);
+    if (opened) {
+      Navigator.of(context).pop();
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('No email app is available on this device.')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: Material(
+        color: AppColors.panelDark,
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(AppRadii.large),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.xl,
+            AppSpacing.md,
+            AppSpacing.xl,
+            AppSpacing.xl,
+          ),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.border,
+                      borderRadius: BorderRadius.circular(AppRadii.pill),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        'Contact Support',
+                        style: AppTextStyles.pageTitle.copyWith(fontSize: 27),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: _isOpeningMail
+                          ? null
+                          : () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  'Support will reply by email. Until the official support '
+                  'address is supplied, this draft is addressed to your own '
+                  'email: ${widget.senderEmail}.',
+                  style: AppTextStyles.body,
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                const Text('SUBJECT', style: AppTextStyles.label),
+                const SizedBox(height: AppSpacing.xs),
+                DropdownButtonFormField<String>(
+                  initialValue: _topic,
+                  items: _topics
+                      .map(
+                        (String topic) => DropdownMenuItem<String>(
+                          value: topic,
+                          child: Text(topic),
+                        ),
+                      )
+                      .toList(growable: false),
+                  onChanged: _isOpeningMail
+                      ? null
+                      : (String? value) {
+                          if (value != null) setState(() => _topic = value);
+                        },
+                  decoration: const InputDecoration(),
+                  style: AppTextStyles.input,
+                  dropdownColor: AppColors.panelDark,
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                const Text('MESSAGE', style: AppTextStyles.label),
+                const SizedBox(height: AppSpacing.xs),
+                TextFormField(
+                  controller: _bodyController,
+                  enabled: !_isOpeningMail,
+                  minLines: 5,
+                  maxLines: 8,
+                  textInputAction: TextInputAction.newline,
+                  style: AppTextStyles.input,
+                  decoration: const InputDecoration(
+                    hintText: 'Tell us how we can help.',
+                  ),
+                  validator: (String? value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter a message.';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                PrimaryActionButton(
+                  label: 'Open Email',
+                  icon: Icons.mail_outline,
+                  onPressed: _isOpeningMail ? null : _openMailComposer,
+                  isLoading: _isOpeningMail,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

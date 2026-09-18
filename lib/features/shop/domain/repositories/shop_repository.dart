@@ -1,0 +1,47 @@
+import 'package:pcj_v4/shared/domain/entities/cart.dart';
+import 'package:pcj_v4/shared/domain/entities/order.dart';
+import 'package:pcj_v4/shared/domain/entities/product.dart';
+
+class AddToCartRequest {
+  const AddToCartRequest({
+    required this.product,
+    required this.variant,
+    required this.quantity,
+  });
+
+  final Product product;
+  final ProductVariant variant;
+  final int quantity;
+
+  String get variantId => variant.id;
+}
+
+class PlaceOrderRequest {
+  const PlaceOrderRequest({
+    required this.deliveryMethod,
+    required this.paymentMethod,
+    this.deliveryAddress,
+  });
+
+  final DeliveryMethod deliveryMethod;
+  final String paymentMethod;
+  final String? deliveryAddress;
+}
+
+abstract interface class ShopRepository {
+  Future<List<Product>> getProducts({String? category});
+
+  Future<Product> getProduct(String productId);
+
+  Future<Cart> getCart();
+
+  Future<Cart> addToCart(AddToCartRequest request);
+
+  Future<Cart> updateCartItemQuantity(String cartItemId, int quantity);
+
+  Future<Cart> removeCartItem(String cartItemId);
+
+  Future<Order> placeOrder(PlaceOrderRequest request);
+
+  void clearLocalState();
+}

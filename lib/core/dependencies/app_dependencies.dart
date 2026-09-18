@@ -1,0 +1,229 @@
+import 'package:http/http.dart' as http;
+
+import 'package:pcj_v4/core/cache/memory_cache.dart';
+import 'package:pcj_v4/core/network/pcj_api_client.dart';
+import 'package:pcj_v4/core/network/token_store.dart';
+import 'package:pcj_v4/core/services/image_picker_service.dart';
+import 'package:pcj_v4/features/auth/data/repositories/api_auth_repository.dart';
+import 'package:pcj_v4/features/auth/domain/repositories/auth_repository.dart';
+import 'package:pcj_v4/features/auth/presentation/controllers/auth_controller.dart';
+import 'package:pcj_v4/features/events/data/repositories/api_events_repository.dart';
+import 'package:pcj_v4/features/events/domain/repositories/events_repository.dart';
+import 'package:pcj_v4/features/events/presentation/controllers/events_controller.dart';
+import 'package:pcj_v4/features/home/data/repositories/composite_home_repository.dart';
+import 'package:pcj_v4/features/home/domain/repositories/home_repository.dart';
+import 'package:pcj_v4/features/home/presentation/controllers/home_controller.dart';
+import 'package:pcj_v4/features/offers/data/repositories/api_offers_repository.dart';
+import 'package:pcj_v4/features/offers/domain/repositories/offers_repository.dart';
+import 'package:pcj_v4/features/offers/presentation/controllers/offers_controller.dart';
+import 'package:pcj_v4/features/notifications/data/repositories/api_notifications_repository.dart';
+import 'package:pcj_v4/features/notifications/domain/repositories/notifications_repository.dart';
+import 'package:pcj_v4/features/profile/data/repositories/api_membership_repository.dart';
+import 'package:pcj_v4/features/profile/data/repositories/api_profile_repository.dart';
+import 'package:pcj_v4/features/profile/domain/repositories/membership_repository.dart';
+import 'package:pcj_v4/features/profile/domain/repositories/profile_repository.dart';
+import 'package:pcj_v4/features/profile/presentation/controllers/membership_controller.dart';
+import 'package:pcj_v4/features/profile/presentation/controllers/profile_controller.dart';
+import 'package:pcj_v4/features/registration/data/repositories/api_registration_repository.dart';
+import 'package:pcj_v4/features/registration/domain/repositories/registration_repository.dart';
+import 'package:pcj_v4/features/registration/presentation/controllers/membership_payment_controller.dart';
+import 'package:pcj_v4/features/registration/presentation/controllers/registration_controller.dart';
+import 'package:pcj_v4/features/shop/data/repositories/api_shop_repository.dart';
+import 'package:pcj_v4/features/shop/domain/repositories/shop_repository.dart';
+import 'package:pcj_v4/features/shop/presentation/controllers/checkout_controller.dart';
+import 'package:pcj_v4/features/shop/presentation/controllers/shop_controller.dart';
+import 'package:pcj_v4/features/user_events/data/repositories/api_user_events_repository.dart';
+import 'package:pcj_v4/features/user_events/domain/repositories/user_events_repository.dart';
+import 'package:pcj_v4/features/user_events/presentation/controllers/user_events_controller.dart';
+import 'package:pcj_v4/features/user_orders/data/repositories/api_user_orders_repository.dart';
+import 'package:pcj_v4/features/user_orders/domain/repositories/user_orders_repository.dart';
+import 'package:pcj_v4/features/user_orders/presentation/controllers/user_orders_controller.dart';
+
+/// Composition root: creates each object once and states who owns its lifetime.
+class AppDependencies {
+  AppDependencies._({
+    required http.Client httpClient,
+    required this.memoryCache,
+    required this.authRepository,
+    required this.eventsRepository,
+    required this.shopRepository,
+    required this.offersRepository,
+    required this.notificationsRepository,
+    required this.profileRepository,
+    required this.membershipRepository,
+    required this.registrationRepository,
+    required this.userEventsRepository,
+    required this.userOrdersRepository,
+    required this.authController,
+    required this.homeController,
+    required this.eventsController,
+    required this.shopController,
+    required this.checkoutController,
+    required this.offersController,
+    required this.profileController,
+    required this.membershipController,
+    required this.userEventsController,
+    required this.userOrdersController,
+    required this.registrationController,
+    required this.membershipPaymentController,
+  }) : _httpClient = httpClient;
+
+  factory AppDependencies.create() {
+    final http.Client httpClient = http.Client();
+    final MemoryCache memoryCache = MemoryCache();
+    final TokenStore tokenStore = SecureTokenStore();
+    final PcjApiClient apiClient = PcjApiClient(
+      httpClient,
+      tokenStore: tokenStore,
+    );
+
+    final AuthRepository authRepository = ApiAuthRepository(
+      apiClient: apiClient,
+      tokenStore: tokenStore,
+    );
+    final EventsRepository eventsRepository = ApiEventsRepository(
+      apiClient: apiClient,
+      cache: memoryCache,
+    );
+    final ShopRepository shopRepository = ApiShopRepository(
+      apiClient: apiClient,
+      cache: memoryCache,
+    );
+    final OffersRepository offersRepository = ApiOffersRepository(
+      apiClient: apiClient,
+      cache: memoryCache,
+    );
+    final NotificationsRepository notificationsRepository =
+        ApiNotificationsRepository(apiClient: apiClient);
+    final ProfileRepository profileRepository = ApiProfileRepository(
+      apiClient: apiClient,
+      cache: memoryCache,
+    );
+    final MembershipRepository membershipRepository = ApiMembershipRepository(
+      apiClient: apiClient,
+      cache: memoryCache,
+    );
+    final RegistrationRepository registrationRepository =
+        ApiRegistrationRepository(apiClient: apiClient);
+    final UserEventsRepository userEventsRepository = ApiUserEventsRepository(
+      apiClient: apiClient,
+      cache: memoryCache,
+    );
+    final UserOrdersRepository userOrdersRepository = ApiUserOrdersRepository(
+      apiClient: apiClient,
+    );
+    final HomeRepository homeRepository = CompositeHomeRepository(
+      eventsRepository: eventsRepository,
+      shopRepository: shopRepository,
+      offersRepository: offersRepository,
+    );
+    final ImagePickerService imagePickerService = ImagePickerService();
+
+    return AppDependencies._(
+      httpClient: httpClient,
+      memoryCache: memoryCache,
+      authRepository: authRepository,
+      eventsRepository: eventsRepository,
+      shopRepository: shopRepository,
+      offersRepository: offersRepository,
+      notificationsRepository: notificationsRepository,
+      profileRepository: profileRepository,
+      membershipRepository: membershipRepository,
+      registrationRepository: registrationRepository,
+      userEventsRepository: userEventsRepository,
+      userOrdersRepository: userOrdersRepository,
+      authController: AuthController(repository: authRepository),
+      homeController: HomeController(repository: homeRepository),
+      eventsController: EventsController(repository: eventsRepository),
+      shopController: ShopController(repository: shopRepository),
+      checkoutController: CheckoutController(repository: shopRepository),
+      offersController: OffersController(repository: offersRepository),
+      profileController: ProfileController(
+        repository: profileRepository,
+        imagePickerService: imagePickerService,
+      ),
+      membershipController: MembershipController(
+        repository: membershipRepository,
+      ),
+      userEventsController: UserEventsController(
+        repository: userEventsRepository,
+      ),
+      userOrdersController: UserOrdersController(
+        repository: userOrdersRepository,
+      ),
+      registrationController: RegistrationController(
+        imagePickerService: imagePickerService,
+        registrationRepository: registrationRepository,
+      ),
+      membershipPaymentController: MembershipPaymentController(
+        repository: membershipRepository,
+      ),
+    );
+  }
+
+  final http.Client _httpClient;
+  final MemoryCache memoryCache;
+
+  final AuthRepository authRepository;
+  final EventsRepository eventsRepository;
+  final ShopRepository shopRepository;
+  final OffersRepository offersRepository;
+  final NotificationsRepository notificationsRepository;
+  final ProfileRepository profileRepository;
+  final MembershipRepository membershipRepository;
+  final RegistrationRepository registrationRepository;
+  final UserEventsRepository userEventsRepository;
+  final UserOrdersRepository userOrdersRepository;
+
+  final AuthController authController;
+  final HomeController homeController;
+  final EventsController eventsController;
+  final ShopController shopController;
+  final CheckoutController checkoutController;
+  final OffersController offersController;
+  final ProfileController profileController;
+  final MembershipController membershipController;
+  final UserEventsController userEventsController;
+  final UserOrdersController userOrdersController;
+  final RegistrationController registrationController;
+  final MembershipPaymentController membershipPaymentController;
+
+  /// Clears both the token and every member-specific in-memory state object.
+  /// This prevents one member from briefly seeing another member's cached
+  /// profile, offers, events, or cart after a sign-out/sign-in cycle.
+  Future<void> signOut() async {
+    try {
+      await authController.signOut();
+    } finally {
+      memoryCache.clear();
+      offersRepository.clearLocalState();
+      shopRepository.clearLocalState();
+      homeController.reset();
+      eventsController.reset();
+      shopController.reset();
+      checkoutController.reset();
+      offersController.reset();
+      profileController.reset();
+      membershipController.reset();
+      userEventsController.reset();
+      userOrdersController.reset();
+      membershipPaymentController.reset();
+    }
+  }
+
+  void dispose() {
+    authController.dispose();
+    homeController.dispose();
+    eventsController.dispose();
+    shopController.dispose();
+    checkoutController.dispose();
+    offersController.dispose();
+    profileController.dispose();
+    membershipController.dispose();
+    userEventsController.dispose();
+    userOrdersController.dispose();
+    registrationController.dispose();
+    membershipPaymentController.dispose();
+    _httpClient.close();
+  }
+}
