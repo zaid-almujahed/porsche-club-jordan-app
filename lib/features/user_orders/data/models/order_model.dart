@@ -11,16 +11,22 @@ class OrderModel extends Order {
     required super.createdAt,
     required super.total,
     required super.currency,
-    super.estimatedDelivery,
+    required super.paymentStatus,
+    required super.paymentMethod,
+    required super.deliveryMethod,
+    required super.deliveryFee,
+    super.message,
   });
 
-  factory OrderModel.fromJson(Map<String, dynamic> source) {
-    final Object? nested = source['order'];
-    final Map<String, dynamic> json = nested is Map
-        ? Map<String, dynamic>.from(nested)
-        : source;
-    final Object? rawItems = json['items'] ?? json['order_items'];
-    final List<CartItem> items = rawItems is List
+  factory OrderModel.fromJson(
+    Map<String, dynamic> json, {
+    List<CartItem> fallbackItems = const <CartItem>[],
+    String fallbackDeliveryMethod = '',
+    String fallbackPaymentMethod = '',
+    DateTime? fallbackCreatedAt,
+  }) {
+    final Object? rawItems = json['items'];
+    final List<CartItem> parsedItems = rawItems is List
         ? rawItems
               .whereType<Map>()
               .map<CartItem>((Map item) {
@@ -28,41 +34,62 @@ class OrderModel extends Order {
               })
               .toList(growable: false)
         : const <CartItem>[];
+    final List<CartItem> items = parsedItems.isEmpty
+        ? fallbackItems
+        : parsedItems;
 
     return OrderModel(
-      id:
-          firstString(json, const <String>['id', 'order_id', 'order_number']) ??
-          '',
+      id: firstString(json, const <String>['order_id']) ?? '',
       items: items,
-      status: _status(json['status']),
+      status: parseStatus(json['status'] ?? json['order_status']),
       createdAt:
-          firstDateTime(json, const <String>['created_at', 'ordered_at']) ??
+          firstDateTime(json, const <String>['created_at']) ??
+          fallbackCreatedAt ??
           DateTime.fromMillisecondsSinceEpoch(0),
-      estimatedDelivery: firstDateTime(json, const <String>[
-        'estimated_delivery',
-        'delivery_date',
-      ]),
-      total:
-          firstDouble(json, const <String>[
-            'total',
-            'total_amount',
-            'amount',
-          ]) ??
+      total: firstDouble(json, const <String>['total']) ??
           items.fold<double>(
             0,
             (double total, CartItem item) => total + item.total,
           ),
-      currency: firstString(json, const <String>['currency']) ?? 'JOD',
+      currency: 'JOD',
+      paymentStatus:
+          firstString(json, const <String>['payment_status']) ?? '',
+      paymentMethod:
+          firstString(json, const <String>['payment_method']) ??
+          fallbackPaymentMethod,
+      deliveryMethod:
+          firstString(json, const <String>['delivery_method']) ??
+          fallbackDeliveryMethod,
+      deliveryFee:
+          firstDouble(json, const <String>['delivery_fee']) ?? 0,
+      message: firstString(json, const <String>['message']),
     );
   }
 
-  static OrderStatus _status(Object? value) {
-    final String normalized = value?.toString().toLowerCase() ?? '';
-    if (normalized.contains('ship')) return OrderStatus.shipped;
-    if (normalized.contains('deliver') || normalized.contains('complete')) {
-      return OrderStatus.delivered;
-    }
-    if (normalized.contains('cancel')) return OrderStatus.cancelled;
-    return OrderStatus.processing;
+  static OrderStatus parseStatus(Object? value) {
+    return switch (value?.toString().trim().toUpperCase()) {
+      'PENDING' => OrderStatus.pending,
+      'PROCESSING' => OrderStatus.processing,
+      'SHIPPED' => OrderStatus.shipped,
+      'DELIVERED' => OrderStatus.delivered,
+      'CANCELLED' || 'CANCELED' => OrderStatus.cancelled,
+      _ => OrderStatus.unknown,
+    };
+  }
+}
+
+class OrderCancellationResultModel extends OrderCancellationResult {
+  const OrderCancellationResultModel({
+    required super.message,
+    required super.orderId,
+    required super.status,
+  });
+
+  factory OrderCancellationResultModel.fromJson(Map<String, dynamic> json) {
+    return OrderCancellationResultModel(
+      message: firstString(json, const <String>['message']) ?? '',
+      orderId: firstString(json, const <String>['order_id']) ?? '',
+      status: OrderModel.parseStatus(json['status']),
+    );
   }
 }

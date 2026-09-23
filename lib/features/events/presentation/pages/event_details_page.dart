@@ -28,6 +28,7 @@ class EventDetailsPage extends StatelessWidget {
           ),
           body: AppPageBody(
             topPadding: 0,
+            onRefresh: controller.refresh,
             child: AsyncStateView<Event>(
               state: controller.state,
               onRetry: controller.refresh,
@@ -75,13 +76,17 @@ class EventDetailsPage extends StatelessWidget {
                       longitude: event.longitude,
                     ),
                     const SizedBox(height: 54),
-                    if (event.isAtCapacity)
+                    if (event.hasStartedAt(DateTime.now()))
+                      const SecondaryActionButton(label: 'Registration Closed')
+                    else if (event.isAtCapacity)
                       const SecondaryActionButton(label: 'Event At Capacity')
                     else
                       PrimaryActionButton(
                         label: 'Register for Event',
                         onPressed: () => context.push(
-                          AppRoutes.eventRegistrationLocation(event.id),
+                          AppRoutes.eventRegistrationLocation(
+                            controller.eventId,
+                          ),
                           extra: event,
                         ),
                       ),

@@ -5,6 +5,7 @@ import 'package:pcj_v4/core/theme/app_theme.dart';
 import 'package:pcj_v4/core/utils/app_formatters.dart';
 import 'package:pcj_v4/shared/domain/entities/cart.dart';
 import 'package:pcj_v4/shared/domain/entities/product.dart';
+import 'package:pcj_v4/shared/widgets/app_dialog.dart';
 import 'package:pcj_v4/shared/widgets/app_widgets.dart';
 
 import '../controllers/product_details_controller.dart';
@@ -20,9 +21,18 @@ class ProductDetailsPage extends StatelessWidget {
   final ProductDetailsController controller;
   final ValueChanged<Cart> onAddedToCart;
 
-  Future<void> _addToCart() async {
+  Future<void> _addToCart(BuildContext context) async {
     final Cart? cart = await controller.addToCart();
-    if (cart != null) onAddedToCart(cart);
+    if (cart == null || !context.mounted) return;
+    await showAppMessageDialog(
+      context: context,
+      title: 'Added to Cart',
+      message: 'The selected item was added to your cart successfully.',
+      buttonLabel: 'View Cart',
+      icon: Icons.check_circle_outline,
+      iconColor: AppColors.success,
+    );
+    if (context.mounted) onAddedToCart(cart);
   }
 
   @override
@@ -31,6 +41,7 @@ class ProductDetailsPage extends StatelessWidget {
       animation: controller,
       builder: (BuildContext context, Widget? child) {
         final Product? product = controller.state.data;
+        final bool canPurchase = controller.selectedVariant != null;
         return Scaffold(
           backgroundColor: AppColors.canvas,
           appBar: const PorscheAppBar(title: 'Shop', showBack: true),
@@ -44,24 +55,25 @@ class ProductDetailsPage extends StatelessWidget {
                       color: AppColors.canvas,
                       border: Border(top: BorderSide(color: AppColors.border)),
                     ),
-                    child: controller.selectedVariant != null
+                    child: canPurchase
                         ? PrimaryActionButton(
                             label: controller.isAddingToCart
                                 ? 'Adding...'
                                 : 'Add to Cart',
                             onPressed: controller.isAddingToCart
                                 ? null
-                                : _addToCart,
+                                : () => _addToCart(context),
                             height: 64,
                           )
                         : const SecondaryActionButton(
-                            label: 'OUT OF STOCK',
+                            label: 'Out of Stock',
                             height: 64,
                           ),
                   ),
                 ),
           body: AppPageBody(
             topPadding: AppSpacing.section,
+            onRefresh: controller.refresh,
             child: AsyncStateView<Product>(
               state: controller.state,
               onRetry: controller.refresh,
@@ -116,10 +128,15 @@ class ProductDetailsPage extends StatelessWidget {
                         fontSize: 29,
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.xxl),
-                    const Divider(),
-                    const SizedBox(height: AppSpacing.xxl),
-                    Text(product.description, style: AppTextStyles.bodyLarge),
+                    if (product.description.trim().isNotEmpty) ...<Widget>[
+                      const SizedBox(height: AppSpacing.xxl),
+                      const Divider(),
+                      const SizedBox(height: AppSpacing.xxl),
+                      Text(
+                        product.description,
+                        style: AppTextStyles.bodyLarge,
+                      ),
+                    ],
                     if (controller.availableColors.isNotEmpty) ...<Widget>[
                       const SizedBox(height: 44),
                       ColorSelector(
@@ -139,6 +156,7 @@ class ProductDetailsPage extends StatelessWidget {
                     const SizedBox(height: 36),
                     QuantitySelector(
                       quantity: controller.quantity,
+                      enabled: canPurchase,
                       canIncrement:
                           controller.quantity < controller.maximumQuantity,
                       onIncrement: controller.incrementQuantity,

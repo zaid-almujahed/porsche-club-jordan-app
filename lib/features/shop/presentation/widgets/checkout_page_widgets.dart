@@ -147,14 +147,10 @@ class CheckoutItemCard extends StatelessWidget {
   const CheckoutItemCard({
     super.key,
     required this.item,
-    required this.onIncrement,
-    required this.onDecrement,
     required this.onRemove,
   });
 
   final CartItem item;
-  final VoidCallback onIncrement;
-  final VoidCallback onDecrement;
   final VoidCallback onRemove;
 
   @override
@@ -215,13 +211,15 @@ class CheckoutItemCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            item.product.description,
-            style: AppTextStyles.bodyLarge.copyWith(
-              color: AppColors.textPrimary,
+          if (item.product.description.trim().isNotEmpty) ...<Widget>[
+            const SizedBox(height: 8),
+            Text(
+              item.product.description,
+              style: AppTextStyles.bodyLarge.copyWith(
+                color: AppColors.textPrimary,
+              ),
             ),
-          ),
+          ],
           const SizedBox(height: 27),
           Wrap(
             spacing: 9,
@@ -230,7 +228,7 @@ class CheckoutItemCard extends StatelessWidget {
                 <String>[
                   if (item.selectedSize != null) 'SIZE: ${item.selectedSize}',
                   if (item.selectedColor != null)
-                    'COLOR: ${item.selectedColor!.name.toUpperCase()}',
+                    'COLOR: ${AppFormatters.initCap(item.selectedColor!.name)}',
                 ].map((String tag) {
                   return DecoratedBox(
                     decoration: BoxDecoration(
@@ -259,13 +257,7 @@ class CheckoutItemCard extends StatelessWidget {
           const SizedBox(height: 18),
           Row(
             children: <Widget>[
-              _InlineQuantity(
-                value: item.quantity,
-                onIncrement: item.quantity < item.availableStock
-                    ? onIncrement
-                    : null,
-                onDecrement: onDecrement,
-              ),
+              _CartQuantity(value: item.quantity),
               const SizedBox(width: 27),
               Text(
                 AppFormatters.money(item.total, item.product.currency),
@@ -282,16 +274,10 @@ class CheckoutItemCard extends StatelessWidget {
   }
 }
 
-class _InlineQuantity extends StatelessWidget {
-  const _InlineQuantity({
-    required this.value,
-    this.onIncrement,
-    required this.onDecrement,
-  });
+class _CartQuantity extends StatelessWidget {
+  const _CartQuantity({required this.value});
 
   final int value;
-  final VoidCallback? onIncrement;
-  final VoidCallback onDecrement;
 
   @override
   Widget build(BuildContext context) {
@@ -303,35 +289,9 @@ class _InlineQuantity extends StatelessWidget {
         border: Border.all(color: const Color(0xFF2C2C2C), width: 1.13),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          ColoredBox(
-            color: Color(0x00000000),
-            child: IconButton(
-              onPressed: value <= 1 ? null : onDecrement,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints.tightFor(width: 30),
-              icon: const Icon(Icons.remove, size: 15),
-            ),
-          ),
-          SizedBox(
-            width: 36,
-            child: ColoredBox(
-              color: AppColors.canvas,
-              child: Center(child: Text('$value', style: AppTextStyles.label)),
-            ),
-          ),
-          ColoredBox(
-            color: Color(0x00000000),
-            child: IconButton(
-              onPressed: onIncrement,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints.tightFor(width: 30),
-              icon: const Icon(Icons.add, size: 15),
-            ),
-          ),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        child: Center(child: Text('QTY $value', style: AppTextStyles.label)),
       ),
     );
   }
@@ -399,6 +359,63 @@ class DeliveryMethodPanel extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class PaymentMethodPanel extends StatelessWidget {
+  const PaymentMethodPanel({
+    super.key,
+    required this.selectedMethod,
+    required this.onSelected,
+  });
+
+  final PaymentMethod selectedMethod;
+  final ValueChanged<PaymentMethod> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: checkoutPanelDecoration(radius: 12),
+      child: Column(
+        children: <Widget>[
+          Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF181817),
+              border: Border.all(color: const Color(0x33FBFCFF)),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: _DeliveryChoice(
+              icon: Icons.payments_outlined,
+              label: 'CASH',
+              selected: selectedMethod == PaymentMethod.cash,
+              onTap: () => onSelected(PaymentMethod.cash),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF181817),
+              border: Border.all(color: const Color(0x33FBFCFF)),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: _DeliveryChoice(
+              icon: Icons.credit_card_outlined,
+              label: 'ONLINE',
+              selected: selectedMethod == PaymentMethod.online,
+              onTap: () => onSelected(PaymentMethod.online),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            selectedMethod == PaymentMethod.cash
+                ? 'Pending cash orders can be cancelled from My Orders.'
+                : 'Online payment will be handled after the order is placed.',
+            style: AppTextStyles.body.copyWith(color: AppColors.textFaint),
           ),
         ],
       ),

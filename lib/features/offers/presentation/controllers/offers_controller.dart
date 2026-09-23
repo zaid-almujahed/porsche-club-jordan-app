@@ -26,7 +26,7 @@ class OffersController extends ChangeNotifier {
 
   Future<void> load({bool force = false}) async {
     if (!force && (_offers.isLoading || _offers.hasData)) return;
-    await _fetch();
+    await _fetch(forceRefresh: force);
   }
 
   void selectCategory(String category) {
@@ -45,9 +45,8 @@ class OffersController extends ChangeNotifier {
       await _repository.claimOffer(offer.id);
       _allOffers = _allOffers
           .map(
-            (Offer value) => value.id == offer.id
-                ? value.copyWith(isClaimed: true)
-                : value,
+            (Offer value) =>
+                value.id == offer.id ? value.copyWith(isClaimed: true) : value,
           )
           .toList(growable: false);
       _applyFilter();
@@ -61,13 +60,13 @@ class OffersController extends ChangeNotifier {
     }
   }
 
-  Future<void> _fetch() async {
+  Future<void> _fetch({required bool forceRefresh}) async {
     final int requestId = ++_requestId;
     _offers = AsyncState<List<Offer>>.loading(previousData: _offers.data);
     notifyListeners();
     try {
       final List<Offer> offers = List<Offer>.unmodifiable(
-        await _repository.getOffers(),
+        await _repository.getOffers(forceRefresh: forceRefresh),
       );
       if (requestId != _requestId) return;
       _allOffers = offers;
@@ -88,15 +87,18 @@ class OffersController extends ChangeNotifier {
 
   void _applyFilter() {
     final String selected = _selectedCategory?.trim().toLowerCase() ?? '';
-    final List<Offer> visible = _allOffers.where((Offer offer) {
-      if (selected == 'nuqul') return offer.isNuqulExclusive;
-      if (selected == 'partners') return !offer.isNuqulExclusive;
-      return true;
-    }).toList(growable: false)
-      ..sort((Offer left, Offer right) {
-        if (left.isClaimed == right.isClaimed) return 0;
-        return left.isClaimed ? 1 : -1;
-      });
+    final List<Offer> visible =
+        _allOffers
+            .where((Offer offer) {
+              if (selected == 'nuqul') return offer.isNuqulExclusive;
+              if (selected == 'partners') return !offer.isNuqulExclusive;
+              return true;
+            })
+            .toList(growable: false)
+          ..sort((Offer left, Offer right) {
+            if (left.isClaimed == right.isClaimed) return 0;
+            return left.isClaimed ? 1 : -1;
+          });
     _offers = AsyncState<List<Offer>>.success(
       List<Offer>.unmodifiable(visible),
     );

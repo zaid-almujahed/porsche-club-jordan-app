@@ -14,6 +14,7 @@ class CheckoutController extends ChangeNotifier {
   final ShopRepository _repository;
   AsyncState<Cart> _cart = const AsyncState<Cart>.initial();
   DeliveryMethod _deliveryMethod = DeliveryMethod.pickup;
+  PaymentMethod _paymentMethod = PaymentMethod.cash;
   String? _deliveryAddress;
   bool _isPlacingOrder = false;
   Object? _orderError;
@@ -21,6 +22,7 @@ class CheckoutController extends ChangeNotifier {
 
   AsyncState<Cart> get cart => _cart;
   DeliveryMethod get deliveryMethod => _deliveryMethod;
+  PaymentMethod get paymentMethod => _paymentMethod;
   String? get deliveryAddress => _deliveryAddress;
   bool get isPlacingOrder => _isPlacingOrder;
   Object? get orderError => _orderError;
@@ -42,20 +44,18 @@ class CheckoutController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void selectPaymentMethod(PaymentMethod value) {
+    _paymentMethod = value;
+    notifyListeners();
+  }
+
   void setDeliveryAddress(String? value) {
     _deliveryAddress = value?.trim();
     notifyListeners();
   }
 
-  Future<void> changeQuantity(CartItem item, int quantity) async {
-    if (quantity < 1 || quantity > item.availableStock) return;
-    await _replaceCart(
-      () => _repository.updateCartItemQuantity(item.id, quantity),
-    );
-  }
-
-  Future<void> removeItem(String cartItemId) async {
-    await _replaceCart(() => _repository.removeCartItem(cartItemId));
+  Future<void> removeItem(CartItem item) async {
+    await _replaceCart(() => _repository.removeCartItem(item));
   }
 
   Future<void> _replaceCart(Future<Cart> Function() action) async {
@@ -99,7 +99,7 @@ class CheckoutController extends ChangeNotifier {
       return await _repository.placeOrder(
         PlaceOrderRequest(
           deliveryMethod: _deliveryMethod,
-          paymentMethod: 'card',
+          paymentMethod: _paymentMethod,
           deliveryAddress: _deliveryAddress,
         ),
       );
@@ -116,6 +116,7 @@ class CheckoutController extends ChangeNotifier {
     _cartRequestId++;
     _cart = const AsyncState<Cart>.initial();
     _deliveryMethod = DeliveryMethod.pickup;
+    _paymentMethod = PaymentMethod.cash;
     _deliveryAddress = null;
     _isPlacingOrder = false;
     _orderError = null;

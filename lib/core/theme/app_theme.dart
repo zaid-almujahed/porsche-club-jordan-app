@@ -236,6 +236,27 @@ abstract final class AppTheme {
         thickness: 1,
         space: 1,
       ),
+      dialogTheme: DialogThemeData(
+        elevation: 0,
+        backgroundColor: AppColors.panelDark,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.large),
+        ),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: AppColors.panelDark,
+        modalBackgroundColor: AppColors.panelDark,
+        surfaceTintColor: Colors.transparent,
+      ),
+      datePickerTheme: const DatePickerThemeData(
+        backgroundColor: AppColors.panelDark,
+        surfaceTintColor: Colors.transparent,
+      ),
+      popupMenuTheme: const PopupMenuThemeData(
+        color: AppColors.panelDark,
+        surfaceTintColor: Colors.transparent,
+      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: false,
         hintStyle: AppTextStyles.input.copyWith(color: AppColors.textFaint),

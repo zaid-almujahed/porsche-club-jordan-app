@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -15,20 +16,24 @@ class ProfilePage extends StatelessWidget {
     required this.controller,
     required this.onLogOut,
     this.onSupportPressed,
+    this.unreadNotificationCount,
   });
 
   final ProfileController controller;
   final Future<void> Function() onLogOut;
   final VoidCallback? onSupportPressed;
+  final ValueListenable<int>? unreadNotificationCount;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
       backgroundColor: AppColors.canvas,
-      appBar: const PorscheAppBar(title: 'Profile'),
-      bottomNavigationBar: const AppBottomNavigation(
-        selected: AppSection.profile,
+      appBar: PorscheAppBar(
+        title: 'Profile',
+        showNotifications: true,
+        unreadNotificationCount: unreadNotificationCount,
+        onNotificationsPressed: () => context.push(AppRoutes.notifications),
       ),
       body: AnimatedBuilder(
         animation: controller,
@@ -37,6 +42,7 @@ class ProfilePage extends StatelessWidget {
             topPadding: AppSpacing.section,
             bottomPadding:
                 AppLayout.navigationBarHeight + AppSpacing.pageBottom,
+            onRefresh: () => controller.load(force: true),
             child: AsyncStateView<User>(
               state: controller.profile,
               onRetry: () => controller.load(force: true),

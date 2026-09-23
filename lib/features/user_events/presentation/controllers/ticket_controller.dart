@@ -13,9 +13,7 @@ class TicketController extends SafeChangeNotifier {
        _booking = initialBooking == null
            ? const AsyncState<EventBooking>.initial()
            : AsyncState<EventBooking>.success(initialBooking),
-       _ticket = initialBooking?.ticket == null
-           ? const AsyncState<EventTicket>.initial()
-           : AsyncState<EventTicket>.success(initialBooking!.ticket!);
+       _ticket = _initialTicketState(initialBooking);
 
   final UserEventsRepository _repository;
   final String bookingId;
@@ -26,8 +24,14 @@ class TicketController extends SafeChangeNotifier {
   AsyncState<EventTicket> get ticket => _ticket;
 
   Future<void> load({bool force = false}) async {
+    if (_booking.data?.event.hasEndedAt(DateTime.now()) ?? false) {
+      _ticket = const AsyncState<EventTicket>.initial();
+      notifyListeners();
+      return;
+    }
     if (!force &&
-        (_ticket.isLoading || (_booking.hasData && _ticket.hasData))) {
+        (_ticket.isLoading ||
+            (_booking.hasData && _hasUsableTicket(_ticket.data)))) {
       return;
     }
     if (force || !_booking.hasData) {
@@ -44,27 +48,18 @@ class TicketController extends SafeChangeNotifier {
       }
     }
 
-    final EventTicket? includedTicket = _booking.data?.ticket;
-    if (_booking.data?.status == EventBookingStatus.attended) {
-      _ticket = AsyncState<EventTicket>.success(
-        includedTicket ??
-            EventTicket(
-              id: _booking.data!.id,
-              qrImageUrl: '',
-              holderName: 'Member',
-              attendanceStatus: 'Attended',
-            ),
-      );
-      notifyListeners();
-      return;
-    }
-    // Never request or display access credentials for a paid RSVP until the
-    // backend explicitly reports a completed payment.
-    if (!_booking.data!.isPaymentComplete) {
+    if (_booking.data!.event.hasEndedAt(DateTime.now())) {
       _ticket = const AsyncState<EventTicket>.initial();
       notifyListeners();
       return;
     }
+    if (_booking.data!.status != EventBookingStatus.confirmed) {
+      _ticket = const AsyncState<EventTicket>.initial();
+      notifyListeners();
+      return;
+    }
+
+    final EventTicket? includedTicket = _booking.data?.ticket;
     // If attendance has already been recorded, do not call the QR endpoint:
     // the backend contract explicitly disallows generating the code again.
     // A supplied non-empty token is also already sufficient for display.
@@ -86,5 +81,17 @@ class TicketController extends SafeChangeNotifier {
       _ticket = AsyncState<EventTicket>.failure(error, stackTrace);
     }
     notifyListeners();
+  }
+
+  static AsyncState<EventTicket> _initialTicketState(EventBooking? booking) {
+    final EventTicket? ticket = booking?.ticket;
+    return _hasUsableTicket(ticket)
+        ? AsyncState<EventTicket>.success(ticket!)
+        : const AsyncState<EventTicket>.initial();
+  }
+
+  static bool _hasUsableTicket(EventTicket? ticket) {
+    return ticket != null &&
+        (!ticket.canDisplayQr || ticket.qrToken.trim().isNotEmpty);
   }
 }

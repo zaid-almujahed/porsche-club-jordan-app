@@ -10,6 +10,7 @@ import 'package:pcj_v4/features/events/presentation/pages/event_details_page.dar
 import 'package:pcj_v4/features/events/presentation/pages/event_registration_page.dart';
 import 'package:pcj_v4/features/events/presentation/pages/events_page.dart';
 import 'package:pcj_v4/features/home/presentation/pages/home_page.dart';
+import 'package:pcj_v4/features/notifications/presentation/pages/notifications_page.dart';
 import 'package:pcj_v4/features/offers/presentation/pages/offers_page.dart';
 import 'package:pcj_v4/features/profile/presentation/pages/account_settings_page.dart';
 import 'package:pcj_v4/features/profile/presentation/pages/membership_settings_page.dart';
@@ -34,6 +35,8 @@ import 'package:pcj_v4/shared/domain/entities/event_booking.dart';
 import 'package:pcj_v4/shared/domain/entities/cart.dart';
 import 'package:pcj_v4/shared/domain/entities/product.dart';
 import 'package:pcj_v4/shared/domain/entities/user.dart';
+import 'package:pcj_v4/core/theme/app_theme.dart';
+import 'package:pcj_v4/shared/widgets/app_widgets.dart';
 import 'package:pcj_v4/shared/widgets/support_contact_sheet.dart';
 
 abstract final class AppRoutes {
@@ -53,6 +56,7 @@ abstract final class AppRoutes {
   static const String productDetails = '/shop/products/:productId';
   static const String checkout = '/shop/checkout';
   static const String offers = '/offers';
+  static const String notifications = '/notifications';
   static const String profile = '/profile';
   static const String profileEdit = '/profile/edit';
   static const String userOrders = '/profile/orders';
@@ -137,21 +141,26 @@ GoRouter createAppRouter(AppDependencies dependencies) {
       ),
       GoRoute(
         path: AppRoutes.registerPersonal,
-        builder: (_, _) => RegistrationPersonalPage(
+        builder: (BuildContext context, _) => RegistrationPersonalPage(
           controller: dependencies.registrationController,
+          onCancel: () => _cancelRegistration(context, dependencies),
         ),
       ),
       GoRoute(
         path: AppRoutes.registerVehicle,
         builder: (BuildContext context, GoRouterState state) {
           final controller = dependencies.registrationController;
-          return RegistrationVehiclePage(controller: controller);
+          return RegistrationVehiclePage(
+            controller: controller,
+            onCancel: () => _cancelRegistration(context, dependencies),
+          );
         },
       ),
       GoRoute(
         path: AppRoutes.registerReview,
-        builder: (_, _) => RegistrationReviewPage(
+        builder: (BuildContext context, _) => RegistrationReviewPage(
           controller: dependencies.registrationController,
+          onCancel: () => _cancelRegistration(context, dependencies),
         ),
       ),
       GoRoute(
@@ -159,6 +168,7 @@ GoRouter createAppRouter(AppDependencies dependencies) {
         builder: (BuildContext context, GoRouterState state) =>
             RegistrationPasswordPage(
               controller: dependencies.registrationController,
+              onCancel: () => _cancelRegistration(context, dependencies),
               onSubmitted: () {
                 // Registration verification does not authenticate the member.
                 // They sign in normally; pending/rejected responses are then
@@ -226,24 +236,118 @@ GoRouter createAppRouter(AppDependencies dependencies) {
           );
         },
       ),
-      GoRoute(
-        name: 'home',
-        path: AppRoutes.home,
-        builder: (_, _) {
-          dependencies.homeController.load();
-          return HomePage(
-            controller: dependencies.homeController,
-            user: dependencies.authController.currentUser,
-          );
-        },
-      ),
-      GoRoute(
-        name: 'events',
-        path: AppRoutes.events,
-        builder: (_, _) {
-          dependencies.eventsController.load();
-          return EventsPage(controller: dependencies.eventsController);
-        },
+      StatefulShellRoute.indexedStack(
+        builder:
+            (
+              BuildContext context,
+              GoRouterState state,
+              StatefulNavigationShell navigationShell,
+            ) {
+              dependencies.notificationsController.load();
+              return _MainNavigationShell(navigationShell: navigationShell);
+            },
+        branches: <StatefulShellBranch>[
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                name: 'home',
+                path: AppRoutes.home,
+                builder: (_, _) {
+                  dependencies.homeController.load();
+                  return HomePage(
+                    controller: dependencies.homeController,
+                    user: dependencies.authController.currentUser,
+                    unreadNotificationCount:
+                        dependencies.notificationsController,
+                  );
+                },
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                name: 'events',
+                path: AppRoutes.events,
+                builder: (_, _) {
+                  dependencies.eventsController.load();
+                  return EventsPage(
+                    controller: dependencies.eventsController,
+                    unreadNotificationCount:
+                        dependencies.notificationsController,
+                  );
+                },
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                name: 'shop',
+                path: AppRoutes.shop,
+                builder: (_, _) {
+                  dependencies.shopController.load();
+                  return ShopMainPage(
+                    controller: dependencies.shopController,
+                    unreadNotificationCount:
+                        dependencies.notificationsController,
+                  );
+                },
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                name: 'offers',
+                path: AppRoutes.offers,
+                builder: (_, _) {
+                  dependencies.offersController.load();
+                  return PartnerOffersPage(
+                    controller: dependencies.offersController,
+                    unreadNotificationCount:
+                        dependencies.notificationsController,
+                  );
+                },
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: <RouteBase>[
+              GoRoute(
+                name: 'profile',
+                path: AppRoutes.profile,
+                builder: (BuildContext context, GoRouterState state) {
+                  dependencies.profileController.load();
+                  return ProfilePage(
+                    controller: dependencies.profileController,
+                    unreadNotificationCount:
+                        dependencies.notificationsController,
+                    onSupportPressed: () {
+                      final User? user =
+                          dependencies.authController.currentUser;
+                      if (user == null) return;
+                      showSupportContactSheet(
+                        context: context,
+                        senderEmail: user.email,
+                        initialTopic: 'Account access',
+                      );
+                    },
+                    onLogOut: () async {
+                      try {
+                        await dependencies.signOut();
+                      } finally {
+                        if (context.mounted) {
+                          context.go(AppRoutes.welcome);
+                        }
+                      }
+                    },
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
       ),
       GoRoute(
         path: AppRoutes.eventDetails,
@@ -269,7 +373,6 @@ GoRouter createAppRouter(AppDependencies dependencies) {
           final EventRegistrationController controller =
               EventRegistrationController(
                 eventsRepository: dependencies.eventsRepository,
-                profileRepository: dependencies.profileRepository,
                 eventId: id,
                 initialEvent: state.extra is Event
                     ? state.extra! as Event
@@ -288,14 +391,6 @@ GoRouter createAppRouter(AppDependencies dependencies) {
               );
             },
           );
-        },
-      ),
-      GoRoute(
-        name: 'shop',
-        path: AppRoutes.shop,
-        builder: (_, _) {
-          dependencies.shopController.load();
-          return ShopMainPage(controller: dependencies.shopController);
         },
       ),
       GoRoute(
@@ -341,36 +436,11 @@ GoRouter createAppRouter(AppDependencies dependencies) {
         },
       ),
       GoRoute(
-        name: 'offers',
-        path: AppRoutes.offers,
+        path: AppRoutes.notifications,
         builder: (_, _) {
-          dependencies.offersController.load();
-          return PartnerOffersPage(controller: dependencies.offersController);
-        },
-      ),
-      GoRoute(
-        name: 'profile',
-        path: AppRoutes.profile,
-        builder: (BuildContext context, GoRouterState state) {
-          dependencies.profileController.load();
-          return ProfilePage(
-            controller: dependencies.profileController,
-            onSupportPressed: () {
-              final User? user = dependencies.authController.currentUser;
-              if (user == null) return;
-              showSupportContactSheet(
-                context: context,
-                senderEmail: user.email,
-                initialTopic: 'Account access',
-              );
-            },
-            onLogOut: () async {
-              try {
-                await dependencies.signOut();
-              } finally {
-                if (context.mounted) context.go(AppRoutes.welcome);
-              }
-            },
+          dependencies.notificationsController.load();
+          return NotificationsPage(
+            controller: dependencies.notificationsController,
           );
         },
       ),
@@ -414,6 +484,7 @@ GoRouter createAppRouter(AppDependencies dependencies) {
           dependencies.profileController.load();
           return AccountSettingsPage(
             controller: dependencies.profileController,
+            authController: dependencies.authController,
             onAccountDeleted: () async {
               try {
                 await dependencies.signOut();
@@ -445,6 +516,42 @@ GoRouter createAppRouter(AppDependencies dependencies) {
       ),
     ],
   );
+}
+
+class _MainNavigationShell extends StatelessWidget {
+  const _MainNavigationShell({required this.navigationShell});
+
+  final StatefulNavigationShell navigationShell;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      extendBody: true,
+      backgroundColor: AppColors.canvas,
+      body: navigationShell,
+      bottomNavigationBar: AppBottomNavigation(
+        selected: AppSection.values[navigationShell.currentIndex],
+        onSelected: (AppSection section) {
+          navigationShell.goBranch(section.index);
+        },
+      ),
+    );
+  }
+}
+
+Future<void> _cancelRegistration(
+  BuildContext context,
+  AppDependencies dependencies,
+) async {
+  try {
+    dependencies.registrationController.reset();
+    if (dependencies.authController.currentUser != null) {
+      await dependencies.signOut();
+    }
+  } finally {
+    dependencies.registrationController.reset();
+    if (context.mounted) context.go(AppRoutes.welcome);
+  }
 }
 
 /// Owns controllers created for one route and disposes them when that route is

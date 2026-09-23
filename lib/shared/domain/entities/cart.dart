@@ -2,6 +2,8 @@ import 'product.dart';
 
 enum DeliveryMethod { pickup, delivery }
 
+enum PaymentMethod { cash, online }
+
 class CartItem {
   const CartItem({
     required this.id,
@@ -10,6 +12,7 @@ class CartItem {
     this.selectedColor,
     this.selectedSize,
     this.variantId,
+    this.reportedSubtotal,
   });
 
   final String id;
@@ -18,6 +21,7 @@ class CartItem {
   final ProductColorOption? selectedColor;
   final String? selectedSize;
   final String? variantId;
+  final double? reportedSubtotal;
 
   double get unitPrice {
     for (final ProductVariant variant in product.variants) {
@@ -33,7 +37,7 @@ class CartItem {
     return product.stock;
   }
 
-  double get total => unitPrice * quantity;
+  double get total => reportedSubtotal ?? unitPrice * quantity;
 }
 
 class Cart {
@@ -41,19 +45,23 @@ class Cart {
     required this.items,
     required this.shippingFee,
     required this.currency,
+    this.reportedSubtotal,
   });
 
   final List<CartItem> items;
   final double shippingFee;
   final String currency;
+  final double? reportedSubtotal;
 
   int get itemCount => items.fold<int>(0, (int sum, CartItem item) {
     return sum + item.quantity;
   });
 
-  double get subtotal => items.fold<double>(0, (double sum, CartItem item) {
-    return sum + item.total;
-  });
+  double get subtotal =>
+      reportedSubtotal ??
+      items.fold<double>(0, (double sum, CartItem item) {
+        return sum + item.total;
+      });
 
   double get total => subtotal + shippingFee;
 }

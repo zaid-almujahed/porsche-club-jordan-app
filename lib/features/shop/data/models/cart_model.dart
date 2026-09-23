@@ -11,46 +11,46 @@ class CartItemModel extends CartItem {
     super.selectedColor,
     super.selectedSize,
     super.variantId,
+    super.reportedSubtotal,
   });
 
   factory CartItemModel.fromJson(Map<String, dynamic> json) {
-    final Object? productValue = json['product'] ?? json['item'];
-    final Object? variantValue = json['variant'];
-    final Map<String, dynamic> productJson = productValue is Map
-        ? <String, dynamic>{
-            ...Map<String, dynamic>.from(productValue),
-            if (variantValue is Map) 'selected_variant': variantValue,
-          }
-        : <String, dynamic>{
-            ...json,
-            if (variantValue is Map) 'selected_variant': variantValue,
-          };
+    final int quantity = firstInt(json, const <String>['quantity']) ?? 1;
+    final Map<String, dynamic> variant = <String, dynamic>{
+      'id': json['variant_id'],
+      'color': json['color'],
+      'size': json['size'],
+      // Cart responses do not publish available stock. The quantity already
+      // in the cart is the only stock amount this payload proves exists.
+      'stock': quantity,
+    };
+    final Map<String, dynamic> productJson = <String, dynamic>{
+      'id': json['item_id'],
+      'name': json['name'],
+      'price': json['price'],
+      'image': json['image'],
+      'variants': <Map<String, dynamic>>[variant],
+    };
     final Product product = ProductModel.fromJson(productJson);
-    final Map<String, dynamic> variant = variantValue is Map
-        ? Map<String, dynamic>.from(variantValue)
-        : const <String, dynamic>{};
-    final String? colorName = firstString(
-      variant.isEmpty ? json : variant,
-      const <String>['color', 'color_name'],
-    );
+    final String? colorName = firstString(json, const <String>['color']);
 
     return CartItemModel(
-      id: firstString(json, const <String>['id', 'cart_item_id']) ?? '',
+      id: firstString(json, const <String>['cart_item_id']) ?? '',
       product: product,
-      quantity: firstInt(json, const <String>['quantity', 'qty']) ?? 1,
-      variantId:
-          firstString(variant, const <String>['id', 'variant_id']) ??
-          firstString(json, const <String>['variant_id']),
-      selectedColor: colorName == null
-          ? null
-          : product.colors.cast<ProductColorOption?>().firstWhere(
-              (ProductColorOption? color) => color?.name == colorName,
-              orElse: () => null,
-            ),
-      selectedSize:
-          firstString(variant, const <String>['size', 'size_name']) ??
-          firstString(json, const <String>['size', 'size_name']),
+      quantity: quantity,
+      variantId: firstString(json, const <String>['variant_id']),
+      selectedColor: colorName == null ? null : _color(product, colorName),
+      selectedSize: firstString(json, const <String>['size']),
+      reportedSubtotal: firstDouble(json, const <String>['subtotal']),
     );
+  }
+
+  static ProductColorOption _color(Product product, String name) {
+    final String normalized = name.trim().toLowerCase();
+    for (final ProductColorOption color in product.colors) {
+      if (color.name.trim().toLowerCase() == normalized) return color;
+    }
+    return ProductColorOption(name: name, argbValue: 0xFF5A5A5A);
   }
 }
 
@@ -59,14 +59,11 @@ class CartModel extends Cart {
     required super.items,
     required super.shippingFee,
     required super.currency,
+    super.reportedSubtotal,
   });
 
-  factory CartModel.fromJson(Map<String, dynamic> source) {
-    final Object? nested = source['cart'];
-    final Map<String, dynamic> json = nested is Map
-        ? Map<String, dynamic>.from(nested)
-        : source;
-    final Object? rawItems = json['items'] ?? json['cart_items'];
+  factory CartModel.fromJson(Map<String, dynamic> json) {
+    final Object? rawItems = json['items'];
     final List<CartItem> items = rawItems is List
         ? rawItems
               .whereType<Map>()
@@ -77,10 +74,9 @@ class CartModel extends Cart {
         : const <CartItem>[];
     return CartModel(
       items: items,
-      shippingFee:
-          firstDouble(json, const <String>['shipping_fee', 'delivery_fee']) ??
-          0,
-      currency: firstString(json, const <String>['currency']) ?? 'JOD',
+      shippingFee: 0,
+      currency: 'JOD',
+      reportedSubtotal: firstDouble(json, const <String>['subtotal']),
     );
   }
 }

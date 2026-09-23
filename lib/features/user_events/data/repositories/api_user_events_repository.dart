@@ -19,34 +19,52 @@ class ApiUserEventsRepository implements UserEventsRepository {
   List<EventBooking> _lastBookings = const <EventBooking>[];
 
   @override
-  Future<List<EventBooking>> getBookings({required bool upcoming}) async {
-    Object? value = unwrapApiData(
-      await _cache.getOrLoad<Object?>(
+  Future<List<EventBooking>> getBookings({
+    required bool upcoming,
+    bool forceRefresh = false,
+  }) async {
+    final Object? response = await _cache.getOrLoad<Object?>(
         'user-events:all',
         () => _apiClient.get('/member/events'),
         ttl: const Duration(minutes: 1),
-      ),
-    );
-    if (value is Map && value['events'] is List) value = value['events'];
-    if (value is Map && value['bookings'] is List) value = value['bookings'];
-    if (value is! List) {
-      throw const AppException(
-        'The server returned an invalid registered-events response.',
+        force: forceRefresh,
       );
-    }
+    final List<Map<String, dynamic>> rows = requireJsonMapList(
+      response,
+      description: 'registered-events response',
+    );
     final DateTime now = DateTime.now();
-    final List<EventBooking> bookings = value
-        .whereType<Map>()
-        .map((Map item) {
-          return EventBookingModel.fromJson(Map<String, dynamic>.from(item));
-        })
+    final List<EventBooking> parsedBookings = <EventBooking>[];
+    for (final Map<String, dynamic> item in rows) {
+      try {
+        final EventBooking booking = EventBookingModel.fromJson(item);
+        if (booking.event.id.trim().isNotEmpty) parsedBookings.add(booking);
+      } on FormatException {
+        // My Events is RSVP-only. Records without the documented explicit
+        // CONFIRMED/CANCELLED RSVP status are not registrations and must not
+        // be shown as though the member registered for them.
+      }
+    }
+    // Do not group or select a "latest" row by event id. The endpoint can
+    // return RSVP history rows for the same event; each row keeps its own
+    // status, and only that row's CONFIRMED status controls its visibility.
+    final List<EventBooking> bookings = parsedBookings
+        .where(
+          (EventBooking booking) =>
+              booking.status == EventBookingStatus.confirmed,
+        )
         .where((EventBooking booking) {
-          final bool isUpcoming = booking.event.endsAt.isAfter(now);
+          final bool isUpcoming = !booking.event.hasEndedAt(now);
           return upcoming ? isUpcoming : !isUpcoming;
         })
-        .toList(growable: false);
-    _lastBookings = bookings;
-    return bookings;
+        .toList();
+    bookings.sort(
+      (EventBooking first, EventBooking second) => upcoming
+          ? first.event.startsAt.compareTo(second.event.startsAt)
+          : second.event.startsAt.compareTo(first.event.startsAt),
+    );
+    _lastBookings = List<EventBooking>.unmodifiable(bookings);
+    return _lastBookings;
   }
 
   @override
@@ -67,15 +85,38 @@ class ApiUserEventsRepository implements UserEventsRepository {
     );
     final Object? value = unwrapApiData(response);
     if (value is String) {
-      return EventTicket(
-        id: eventId,
-        qrImageUrl: value.trim(),
-        holderName: '',
+      final String token = value.trim();
+      if (token.isEmpty) {
+        throw const AppException(
+          'The server did not return a QR ticket. Please try again.',
+        );
+      }
+      return EventTicket(id: eventId, qrImageUrl: token, holderName: 'Member');
+    }
+    final Map<String, dynamic> json = requireJsonMap(
+      response,
+      description: 'event ticket response',
+    );
+    final String? status = firstString(json, const <String>[
+      'rsvp_status',
+      'status',
+    ]);
+    if (status != null && status.trim().toUpperCase() != 'CONFIRMED') {
+      throw const AppException(
+        'A QR ticket is available only for a confirmed event registration.',
       );
     }
-    return EventTicketModel.fromJson(
-      requireJsonMap(response, description: 'event ticket response'),
+    final EventTicket ticket = EventTicketModel.fromJson(
+      json,
+      fallbackId: eventId,
     );
+    if (!ticket.isPaid || !ticket.canDisplayQr) return ticket;
+    if (ticket.qrToken.trim().isEmpty) {
+      throw const AppException(
+        'The server did not return a QR ticket. Please try again.',
+      );
+    }
+    return ticket;
   }
 
   @override
@@ -93,5 +134,4 @@ class ApiUserEventsRepository implements UserEventsRepository {
     }
     return null;
   }
-
 }

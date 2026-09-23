@@ -5,6 +5,7 @@ class Membership {
     required this.memberId,
     required this.memberName,
     required this.status,
+    required this.startDate,
     required this.validUntil,
     required this.qrImageUrl,
     required this.annualFee,
@@ -14,6 +15,8 @@ class Membership {
   final String memberId;
   final String memberName;
   final MembershipStatus status;
+  /// The activation date returned as `start_date` by `/member/membership`.
+  final DateTime? startDate;
   /// Null until payment/activation assigns an end date.
   final DateTime? validUntil;
   final String qrImageUrl;

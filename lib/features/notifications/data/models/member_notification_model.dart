@@ -13,10 +13,10 @@ class MemberNotificationModel extends MemberNotification {
 
   factory MemberNotificationModel.fromJson(Map<String, dynamic> json) {
     return MemberNotificationModel(
-      id: firstString(json, const <String>['id']) ?? '',
-      title: firstString(json, const <String>['title']) ?? '',
-      message: firstString(json, const <String>['message']) ?? '',
-      type: _type(firstString(json, const <String>['type'])),
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      message: json['message']?.toString() ?? '',
+      type: _type(json['type']?.toString()),
       isRead: json['is_read'] == true,
       sentAt:
           firstDateTime(json, const <String>['sent_date']) ??
@@ -33,4 +33,5 @@ class MemberNotificationModel extends MemberNotification {
       _ => MemberNotificationType.system,
     };
   }
+
 }

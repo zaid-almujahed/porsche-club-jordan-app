@@ -26,17 +26,20 @@ void main() {
     expect(booking.isPaymentComplete, isTrue);
   });
 
-  test('does not expose a paid registration as complete without confirmation', () {
-    final EventBookingModel booking = EventBookingModel.fromJson(
-      const <String, dynamic>{
-        'rsvp_id': 'rsvp-2',
-        'payment_status': 'PENDING',
-      },
-      fallbackEvent: paidEvent,
-    );
+  test(
+    'does not expose a paid registration as complete without confirmation',
+    () {
+      final EventBookingModel booking = EventBookingModel.fromJson(
+        const <String, dynamic>{
+          'rsvp_id': 'rsvp-2',
+          'payment_status': 'PENDING',
+        },
+        fallbackEvent: paidEvent,
+      );
 
-    expect(booking.isPaymentComplete, isFalse);
-  });
+      expect(booking.isPaymentComplete, isFalse);
+    },
+  );
 
   test('a zero-cost registration is complete without a payment status', () {
     final EventModel freeEvent = EventModel.fromSummaryJson(<String, dynamic>{
@@ -49,5 +52,45 @@ void main() {
     );
 
     expect(booking.isPaymentComplete, isTrue);
+  });
+
+  test('accepts the encrypted QR payload returned by the QR service', () {
+    final EventTicketModel ticket = EventTicketModel.fromJson(
+      const <String, dynamic>{
+        'event_id': 12,
+        'encrypted': 'signed-event-token',
+        'attendance_status': 'NOT_ATTENDED',
+      },
+    );
+
+    expect(ticket.id, '12');
+    expect(ticket.qrToken, 'signed-event-token');
+    expect(ticket.canDisplayQr, isTrue);
+  });
+
+  test('finds a QR token inside a nested response envelope', () {
+    final EventTicketModel ticket = EventTicketModel.fromJson(
+      const <String, dynamic>{
+        'data': <String, dynamic>{
+          'qr': <String, dynamic>{'token': 'abc123'},
+        },
+      },
+      fallbackId: '44',
+    );
+
+    expect(ticket.id, '44');
+    expect(ticket.qrToken, 'abc123');
+  });
+
+  test('recognises only used attendance states as non-displayable', () {
+    final EventTicketModel unused = EventTicketModel.fromJson(
+      const <String, dynamic>{'attendance_status': 'not_checked_in'},
+    );
+    final EventTicketModel used = EventTicketModel.fromJson(
+      const <String, dynamic>{'attendance_status': 'CHECKED_IN'},
+    );
+
+    expect(unused.canDisplayQr, isTrue);
+    expect(used.canDisplayQr, isFalse);
   });
 }

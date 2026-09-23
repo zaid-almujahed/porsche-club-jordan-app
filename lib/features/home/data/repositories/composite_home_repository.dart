@@ -23,17 +23,17 @@ class CompositeHomeRepository implements HomeRepository {
   final OffersRepository _offersRepository;
 
   @override
-  Future<HomeFeed> getHomeFeed() async {
+  Future<HomeFeed> getHomeFeed({bool forceRefresh = false}) async {
     // Start the independent requests together so the home screen waits for
     // the slowest endpoint rather than the sum of all three response times.
     final Future<_FeedResult<Event>> eventsRequest = _load<Event>(
-      _eventsRepository.getRecentEvents(),
+      _eventsRepository.getRecentEvents(forceRefresh: forceRefresh),
     );
     final Future<_FeedResult<Product>> productsRequest = _load<Product>(
-      _shopRepository.getProducts(),
+      _shopRepository.getProducts(forceRefresh: forceRefresh),
     );
     final Future<_FeedResult<Offer>> offersRequest = _load<Offer>(
-      _offersRepository.getOffers(),
+      _offersRepository.getOffers(forceRefresh: forceRefresh),
     );
     final _FeedResult<Event> eventResult = await eventsRequest;
     final _FeedResult<Product> productResult = await productsRequest;
@@ -53,10 +53,7 @@ class CompositeHomeRepository implements HomeRepository {
 
     return HomeFeed(
       featuredEvent: featured,
-      seasonEvents: events
-          .where((Event event) => !identical(event, featured))
-          .take(6)
-          .toList(growable: false),
+      seasonEvents: events.take(6).toList(growable: false),
       popularProducts: products.take(4).toList(growable: false),
       featuredOffers: offers.take(3).toList(growable: false),
     );
@@ -84,11 +81,7 @@ class CompositeHomeRepository implements HomeRepository {
 }
 
 class _FeedResult<T> {
-  const _FeedResult({
-    required this.values,
-    this.error,
-    this.stackTrace,
-  });
+  const _FeedResult({required this.values, this.error, this.stackTrace});
 
   final List<T> values;
   final Object? error;

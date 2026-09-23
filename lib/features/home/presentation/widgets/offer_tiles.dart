@@ -21,10 +21,13 @@ class OfferTile extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: SizedBox(
-          height: 78,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 82),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: AppSpacing.sm,
+            ),
             child: Row(
               children: <Widget>[
                 SizedBox(
@@ -40,20 +43,31 @@ class OfferTile extends StatelessWidget {
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      Text(offer.title, style: AppTextStyles.bodyLarge),
                       Text(
-                        offer.description,
+                        offer.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: AppTextStyles.body,
+                        style: AppTextStyles.bodyLarge.copyWith(height: 1.25),
+                      ),
+                      const SizedBox(height: AppSpacing.xxs),
+                      Text(
+                        offer.description,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.body.copyWith(height: 1.3),
                       ),
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right),
+                const SizedBox(width: AppSpacing.xs),
+                const Icon(
+                  Icons.chevron_right,
+                  color: AppColors.textFaint,
+                  size: 22,
+                ),
               ],
             ),
           ),

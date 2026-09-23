@@ -23,31 +23,59 @@ class VirtualTicketPage extends StatelessWidget {
           return AppPageBody(
             topPadding: 40,
             bottomPadding: 50,
+            onRefresh: () => controller.load(force: true),
             child: AsyncStateView<EventBooking>(
               state: controller.booking,
               onRetry: () => controller.load(force: true),
               builder: (BuildContext context, EventBooking booking) {
-                if (!booking.isPaymentComplete) {
+                if (booking.event.hasEndedAt(DateTime.now())) {
                   return const GradientPanel(
                     padding: EdgeInsets.all(36),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
                         Icon(
-                          Icons.lock_clock_outlined,
-                          color: AppColors.warning,
+                          Icons.event_available_outlined,
+                          color: AppColors.textMuted,
                           size: 52,
                         ),
                         SizedBox(height: AppSpacing.md),
                         Text(
-                          'PAYMENT PENDING',
+                          'PAST EVENT',
                           textAlign: TextAlign.center,
                           style: AppTextStyles.sectionTitle,
                         ),
                         SizedBox(height: AppSpacing.sm),
                         Text(
-                          'The event QR code becomes available only after the '
-                          'backend confirms payment.',
+                          'QR tickets are unavailable after an event ends.',
+                          textAlign: TextAlign.center,
+                          style: AppTextStyles.bodyLarge,
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                if (booking.status != EventBookingStatus.confirmed) {
+                  return const GradientPanel(
+                    padding: EdgeInsets.all(36),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Icon(
+                          Icons.confirmation_number_outlined,
+                          color: AppColors.warning,
+                          size: 52,
+                        ),
+                        SizedBox(height: AppSpacing.md),
+                        Text(
+                          'TICKET UNAVAILABLE',
+                          textAlign: TextAlign.center,
+                          style: AppTextStyles.sectionTitle,
+                        ),
+                        SizedBox(height: AppSpacing.sm),
+                        Text(
+                          'A QR ticket is issued only for a confirmed event '
+                          'registration.',
                           textAlign: TextAlign.center,
                           style: AppTextStyles.bodyLarge,
                         ),

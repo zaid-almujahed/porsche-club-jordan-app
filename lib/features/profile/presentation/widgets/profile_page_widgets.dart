@@ -187,6 +187,7 @@ class ProfileMemberCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: <Widget>[
                   Expanded(
+                    flex: 2,
                     child: _ProfileMemberValue(
                       label: 'MEMBER NAME',
                       value: user.name,
@@ -194,7 +195,6 @@ class ProfileMemberCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 18),
                   Expanded(
-                    flex: 2,
                     child: _ProfileMemberValue(
                       label: 'ID NUMBER',
                       value: user.memberId ?? '—',
@@ -243,19 +243,41 @@ class _ProfileMemberValue extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4.5),
-        Text(
-          value,
-          textAlign: alignEnd ? TextAlign.right : TextAlign.left,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: mutedValue ? AppColors.textFaint : AppColors.textSecondary,
-            fontSize: mutedValue ? 18 : 27,
-            fontWeight: FontWeight.w600,
-            height: 1.2,
-            letterSpacing: mutedValue ? 2.26 : 0,
+        if (mutedValue)
+          SizedBox(
+            width: double.infinity,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: alignEnd
+                  ? Alignment.centerRight
+                  : Alignment.centerLeft,
+              child: Text(
+                value,
+                maxLines: 1,
+                textAlign: alignEnd ? TextAlign.right : TextAlign.left,
+                style: const TextStyle(
+                  color: AppColors.textFaint,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  height: 1.2,
+                  letterSpacing: 2.26,
+                ),
+              ),
+            ),
+          )
+        else
+          Text(
+            value,
+            textAlign: alignEnd ? TextAlign.right : TextAlign.left,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 19,
+              fontWeight: FontWeight.w600,
+              height: 1.2,
+            ),
           ),
-        ),
       ],
     );
   }

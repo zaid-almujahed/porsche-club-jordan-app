@@ -12,42 +12,40 @@ class EventsController extends ChangeNotifier {
   final EventsRepository _repository;
   AsyncState<List<Event>> _events = const AsyncState<List<Event>>.initial();
   List<Event> _allEvents = const <Event>[];
-  List<String> _categories = const <String>[];
-  String? _selectedCategory;
+  static const String upcomingCategory = 'Upcoming Events';
+  static const String pastCategory = 'Past Events';
+
+  List<String> _categories = const <String>[upcomingCategory, pastCategory];
+  String _selectedCategory = upcomingCategory;
   int _requestId = 0;
 
   AsyncState<List<Event>> get events => _events;
   List<String> get categories => _categories;
-  String? get selectedCategory => _selectedCategory;
+  String get selectedCategory => _selectedCategory;
+  String get sectionTitle => _selectedCategory;
 
   Future<void> load({bool force = false}) async {
     if (!force && (_events.isLoading || _events.hasData)) return;
-    await _fetch();
+    await _fetch(forceRefresh: force);
   }
 
-  void selectCategory(String? category) {
+  void selectCategory(String category) {
     if (_selectedCategory == category) return;
     _selectedCategory = category;
     if (_events.hasData) _applyFilter();
     notifyListeners();
   }
 
-  Future<void> _fetch() async {
+  Future<void> _fetch({required bool forceRefresh}) async {
     final int requestId = ++_requestId;
     _events = AsyncState<List<Event>>.loading(previousData: _events.data);
     notifyListeners();
     try {
       final List<Event> events = List<Event>.unmodifiable(
-        await _repository.getEvents(),
+        await _repository.getEvents(forceRefresh: forceRefresh),
       );
       if (requestId != _requestId) return;
       _allEvents = events;
-      _categories = List<String>.unmodifiable(
-        events
-            .map((Event event) => event.category.trim())
-            .where((String value) => value.isNotEmpty)
-            .toSet(),
-      );
       _applyFilter();
     } catch (error, stackTrace) {
       if (requestId != _requestId) return;
@@ -62,15 +60,20 @@ class EventsController extends ChangeNotifier {
   }
 
   void _applyFilter() {
-    final String selected = _selectedCategory?.trim().toLowerCase() ?? '';
-    final List<Event> visible = selected.isEmpty
-        ? _allEvents
-        : _allEvents
-              .where(
-                (Event event) =>
-                    event.category.trim().toLowerCase() == selected,
-              )
-              .toList(growable: false);
+    final DateTime now = DateTime.now();
+    final bool showPast = _selectedCategory == pastCategory;
+    final List<Event> visible =
+        _allEvents
+            .where((Event event) {
+              final bool hasEnded = event.hasEndedAt(now);
+              return showPast ? hasEnded : !hasEnded;
+            })
+            .toList(growable: false)
+          ..sort((Event left, Event right) {
+            return showPast
+                ? right.startsAt.compareTo(left.startsAt)
+                : left.startsAt.compareTo(right.startsAt);
+          });
     _events = AsyncState<List<Event>>.success(
       List<Event>.unmodifiable(visible),
     );
@@ -80,8 +83,8 @@ class EventsController extends ChangeNotifier {
     _requestId++;
     _events = const AsyncState<List<Event>>.initial();
     _allEvents = const <Event>[];
-    _categories = const <String>[];
-    _selectedCategory = null;
+    _categories = const <String>[upcomingCategory, pastCategory];
+    _selectedCategory = upcomingCategory;
     notifyListeners();
   }
 }

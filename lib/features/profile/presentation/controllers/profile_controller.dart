@@ -29,6 +29,8 @@ class ProfileController extends ChangeNotifier {
   bool _isSaving = false;
   bool _isUploadingAvatar = false;
   bool _isPerformingAccountAction = false;
+  bool _isEditing = false;
+  XFile? _pendingAvatar;
   Object? _actionError;
 
   AsyncState<User> get profile => _profile;
@@ -37,6 +39,7 @@ class ProfileController extends ChangeNotifier {
   bool get isSaving => _isSaving;
   bool get isUploadingAvatar => _isUploadingAvatar;
   bool get isPerformingAccountAction => _isPerformingAccountAction;
+  String? get avatarPreviewPath => _pendingAvatar?.path;
   Object? get actionError => _actionError;
 
   Future<void> load({bool force = false}) async {
@@ -44,8 +47,8 @@ class ProfileController extends ChangeNotifier {
     _profile = AsyncState<User>.loading(previousData: user);
     notifyListeners();
     try {
-      final User value = await _repository.getProfile();
-      _setUser(value);
+      final User value = await _repository.getProfile(forceRefresh: force);
+      _setUser(value, synchronizeDraft: !_isEditing);
     } catch (error, stackTrace) {
       _profile = AsyncState<User>.failure(
         error,
@@ -56,8 +59,13 @@ class ProfileController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _setUser(User value) {
+  void _setUser(User value, {bool synchronizeDraft = true}) {
     _profile = AsyncState<User>.success(value);
+    if (!synchronizeDraft) return;
+    _synchronizeDraft(value);
+  }
+
+  void _synchronizeDraft(User value) {
     nameController.text = value.name;
     emailController.text = value.email;
     phoneController.text = value.phoneNumber;
@@ -71,15 +79,33 @@ class ProfileController extends ChangeNotifier {
     _actionError = null;
     notifyListeners();
     try {
+      final XFile? pendingAvatar = _pendingAvatar;
+      final String? previousAvatarUrl = user?.avatarUrl;
       final User value = await _repository.updateProfile(
         ProfileUpdate(
           name: nameController.text.trim(),
           phoneNumber: phoneController.text.trim(),
           city: cityController.text.trim(),
           dateOfBirth: _parseDate(dateOfBirthController.text),
+          avatar: pendingAvatar == null
+              ? null
+              : AvatarUpload(
+                  bytes: await pendingAvatar.readAsBytes(),
+                  fileName: pendingAvatar.name,
+                ),
         ),
       );
-      _setUser(value.copyWith(vehicles: vehicles));
+      if (pendingAvatar != null) {
+        await _evictRemoteAvatar(previousAvatarUrl);
+        await _evictRemoteAvatar(value.avatarUrl);
+      }
+      _pendingAvatar = null;
+      _isEditing = false;
+      _setUser(
+        pendingAvatar == null
+            ? value
+            : value.copyWith(avatarUrl: pendingAvatar.path),
+      );
       return true;
     } catch (error) {
       _actionError = error;
@@ -103,16 +129,32 @@ class ProfileController extends ChangeNotifier {
     try {
       final XFile? image = await _imagePickerService.pickFromGallery();
       if (image == null) return;
-      final User value = await _repository.uploadAvatar(
-        AvatarUpload(bytes: await image.readAsBytes(), fileName: image.name),
-      );
-      _setUser(value.copyWith(vehicles: vehicles));
+      _pendingAvatar = image;
     } catch (error) {
       _actionError = error;
     } finally {
       _isUploadingAvatar = false;
       notifyListeners();
     }
+  }
+
+  void beginEditing() {
+    final User? current = user;
+    if (current == null) return;
+    _isEditing = true;
+    _pendingAvatar = null;
+    _actionError = null;
+    _synchronizeDraft(current);
+    notifyListeners();
+  }
+
+  void discardProfileEdits() {
+    final User? current = user;
+    _isEditing = false;
+    _pendingAvatar = null;
+    _actionError = null;
+    if (current != null) _synchronizeDraft(current);
+    notifyListeners();
   }
 
   Future<void> deleteVehicle(String vehicleId) async {
@@ -205,6 +247,8 @@ class ProfileController extends ChangeNotifier {
     _isSaving = false;
     _isUploadingAvatar = false;
     _isPerformingAccountAction = false;
+    _isEditing = false;
+    _pendingAvatar = null;
     _actionError = null;
     notifyListeners();
   }
@@ -238,5 +282,17 @@ class ProfileController extends ChangeNotifier {
 
   static bool _looksLikeEmail(String value) {
     return RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(value);
+  }
+
+  static Future<void> _evictRemoteAvatar(String? url) async {
+    if (url == null ||
+        (!url.startsWith('https://') && !url.startsWith('http://'))) {
+      return;
+    }
+    try {
+      await NetworkImage(url).evict();
+    } catch (_) {
+      // The saved local preview still updates immediately if eviction fails.
+    }
   }
 }

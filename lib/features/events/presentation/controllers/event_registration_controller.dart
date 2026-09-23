@@ -2,52 +2,49 @@ import 'package:pcj_v4/core/errors/app_exception.dart';
 import 'package:pcj_v4/core/state/async_state.dart';
 import 'package:pcj_v4/core/state/safe_change_notifier.dart';
 import 'package:pcj_v4/features/events/domain/repositories/events_repository.dart';
-import 'package:pcj_v4/features/profile/domain/repositories/profile_repository.dart';
 import 'package:pcj_v4/shared/domain/entities/event.dart';
 import 'package:pcj_v4/shared/domain/entities/event_booking.dart';
-import 'package:pcj_v4/shared/domain/entities/vehicle.dart';
 
 class EventRegistrationController extends SafeChangeNotifier {
   EventRegistrationController({
     required EventsRepository eventsRepository,
-    required ProfileRepository profileRepository,
     required this.eventId,
     Event? initialEvent,
   }) : _eventsRepository = eventsRepository,
-       _profileRepository = profileRepository,
        _eventState = initialEvent == null
            ? const AsyncState<Event>.initial()
            : AsyncState<Event>.success(initialEvent);
 
   final EventsRepository _eventsRepository;
-  final ProfileRepository _profileRepository;
   final String eventId;
 
   AsyncState<Event> _eventState;
-  AsyncState<List<Vehicle>> _vehicles =
-      const AsyncState<List<Vehicle>>.initial();
-  Vehicle? _selectedVehicle;
   int _guestCount = 0;
   bool _guestNoticeAccepted = false;
   bool _isSubmitting = false;
   Object? _submissionError;
 
   AsyncState<Event> get eventState => _eventState;
-  AsyncState<List<Vehicle>> get vehicles => _vehicles;
-  Vehicle? get selectedVehicle => _selectedVehicle;
   int get guestCount => _guestCount;
   bool get guestNoticeAccepted => _guestNoticeAccepted;
   bool get isSubmitting => _isSubmitting;
   Object? get submissionError => _submissionError;
 
-  double get guestsTotal => (_eventState.data?.guestFee ?? 0) * _guestCount;
-  double get total => (_eventState.data?.registrationFee ?? 0) + guestsTotal;
+  double get basePrice {
+    final Event? event = _eventState.data;
+    return event == null || !event.isPaid ? 0 : event.registrationFee;
+  }
+
+  // PCJ currently permits guests at no additional charge. Keep this separate
+  // from the event's own registration fee so a paid event can still show its
+  // member price without adding a guest charge.
+  double get guestPrice => 0;
+
+  double get guestsTotal => guestPrice * _guestCount;
+  double get total => basePrice + guestsTotal;
 
   Future<void> load({bool force = false}) async {
-    await Future.wait(<Future<void>>[
-      _loadEvent(force: force),
-      loadVehicles(force: force),
-    ]);
+    await _loadEvent(force: force);
   }
 
   Future<void> _loadEvent({required bool force}) async {
@@ -55,9 +52,19 @@ class EventRegistrationController extends SafeChangeNotifier {
     _eventState = AsyncState<Event>.loading(previousData: _eventState.data);
     notifyListeners();
     try {
-      _eventState = AsyncState<Event>.success(
-        await _eventsRepository.getEvent(eventId),
+      final Event event = await _eventsRepository.getEvent(
+        eventId,
+        forceRefresh: force,
+        fallbackEvent: _eventState.data,
       );
+      _eventState = AsyncState<Event>.success(event);
+      if (event.guestLimit <= 0) {
+        _guestCount = 0;
+        _guestNoticeAccepted = false;
+      } else if (_guestCount > event.guestLimit) {
+        _guestCount = event.guestLimit;
+        _guestNoticeAccepted = false;
+      }
     } catch (error, stackTrace) {
       _eventState = AsyncState<Event>.failure(
         error,
@@ -65,32 +72,6 @@ class EventRegistrationController extends SafeChangeNotifier {
         previousData: _eventState.data,
       );
     }
-    notifyListeners();
-  }
-
-  Future<void> loadVehicles({bool force = false}) async {
-    if (!force && (_vehicles.isLoading || _vehicles.hasData)) return;
-    _vehicles = AsyncState<List<Vehicle>>.loading(previousData: _vehicles.data);
-    notifyListeners();
-    try {
-      final List<Vehicle> values = await _profileRepository.getVehicles();
-      _vehicles = AsyncState<List<Vehicle>>.success(values);
-      if (_selectedVehicle == null && values.isNotEmpty) {
-        _selectedVehicle = values.first;
-      }
-    } catch (error, stackTrace) {
-      _vehicles = AsyncState<List<Vehicle>>.failure(
-        error,
-        stackTrace,
-        previousData: _vehicles.data,
-      );
-    }
-    notifyListeners();
-  }
-
-  void selectVehicle(Vehicle? value) {
-    _selectedVehicle = value;
-    _submissionError = null;
     notifyListeners();
   }
 
@@ -118,6 +99,13 @@ class EventRegistrationController extends SafeChangeNotifier {
   Future<EventBooking?> submit() async {
     final Event? event = _eventState.data;
     if (_isSubmitting || event == null || event.isAtCapacity) return null;
+    if (event.hasStartedAt(DateTime.now())) {
+      _submissionError = const AppException(
+        'Registration is closed because this event has already started.',
+      );
+      notifyListeners();
+      return null;
+    }
     if (_guestCount > 0 && !_guestNoticeAccepted) {
       _submissionError = const AppException(
         'Please acknowledge the guest admission notice before registering.',
@@ -131,7 +119,7 @@ class EventRegistrationController extends SafeChangeNotifier {
     notifyListeners();
     try {
       return await _eventsRepository.registerForEvent(
-        EventRegistrationRequest(eventId: event.id, guestCount: _guestCount),
+        EventRegistrationRequest(eventId: eventId, guestCount: _guestCount),
       );
     } catch (error) {
       if (error is AppException &&

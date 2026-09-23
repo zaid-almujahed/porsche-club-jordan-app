@@ -16,23 +16,21 @@ class CategoryFilters extends StatelessWidget {
   });
 
   final List<String> categories;
-  final String? selectedCategory;
-  final ValueChanged<String?> onSelected;
+  final String selectedCategory;
+  final ValueChanged<String> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    final List<String?> values = <String?>[null, ...categories];
-
     return SizedBox(
       height: 42,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: values.length,
+        itemCount: categories.length,
         separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.md),
         itemBuilder: (BuildContext context, int index) {
-          final String? value = values[index];
+          final String value = categories[index];
           return _FilterChip(
-            label: value?.toUpperCase() ?? 'ALL EVENTS',
+            label: value.toUpperCase(),
             selected: value == selectedCategory,
             onTap: () => onSelected(value),
           );

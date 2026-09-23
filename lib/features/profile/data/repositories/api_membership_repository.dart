@@ -4,7 +4,6 @@ import 'package:pcj_v4/core/network/pcj_api_client.dart';
 import 'package:pcj_v4/features/profile/data/models/membership_model.dart';
 import 'package:pcj_v4/features/profile/domain/repositories/membership_repository.dart';
 import 'package:pcj_v4/shared/domain/entities/membership.dart';
-import 'package:pcj_v4/core/cache/memory_cache.dart';
 
 class ApiMembershipRepository implements MembershipRepository {
   ApiMembershipRepository({
@@ -17,7 +16,7 @@ class ApiMembershipRepository implements MembershipRepository {
   final MemoryCache _cache;
 
   @override
-  Future<Membership> getMembership() async {
+  Future<Membership> getMembership({bool forceRefresh = false}) async {
     return _cache.getOrLoad<Membership>(
       'member:membership',
       () async {
@@ -35,14 +34,13 @@ class ApiMembershipRepository implements MembershipRepository {
           // A pending/approved member may not have a QR token yet.
         }
         return MembershipModel.fromJson(
-          <String, dynamic>{
-            ...membership,
-            if (qr['name'] != null) 'name': qr['name'],
-          },
-          qrImageUrl: firstString(qr, const <String>['qr_token']),
+          membership,
+          memberName: firstString(qr, const <String>['name']) ?? '',
+          qrToken: firstString(qr, const <String>['qr_token']) ?? '',
         );
       },
       ttl: const Duration(minutes: 2),
+      force: forceRefresh,
     );
   }
 
@@ -54,7 +52,7 @@ class ApiMembershipRepository implements MembershipRepository {
     );
     _cache.remove('member:membership');
     _cache.remove('member:profile');
-    return getMembership();
+    return getMembership(forceRefresh: true);
   }
 
   @override
@@ -62,7 +60,7 @@ class ApiMembershipRepository implements MembershipRepository {
     await _apiClient.post('/member/membership/payment');
     _cache.remove('member:membership');
     _cache.remove('member:profile');
-    return getMembership();
+    return getMembership(forceRefresh: true);
   }
 
   @override
@@ -81,5 +79,4 @@ class ApiMembershipRepository implements MembershipRepository {
       authenticated: false,
     );
   }
-
 }

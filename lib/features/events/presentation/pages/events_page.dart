@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -10,18 +11,25 @@ import '../controllers/events_controller.dart';
 import '../widgets/event_page_widgets.dart';
 
 class EventsPage extends StatelessWidget {
-  const EventsPage({super.key, required this.controller});
+  const EventsPage({
+    super.key,
+    required this.controller,
+    this.unreadNotificationCount,
+  });
 
   final EventsController controller;
+  final ValueListenable<int>? unreadNotificationCount;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
       backgroundColor: AppColors.canvas,
-      appBar: const PorscheAppBar(title: 'Events'),
-      bottomNavigationBar: const AppBottomNavigation(
-        selected: AppSection.events,
+      appBar: PorscheAppBar(
+        title: 'Events',
+        showNotifications: true,
+        unreadNotificationCount: unreadNotificationCount,
+        onNotificationsPressed: () => context.push(AppRoutes.notifications),
       ),
       body: AnimatedBuilder(
         animation: controller,
@@ -30,6 +38,7 @@ class EventsPage extends StatelessWidget {
             topPadding: AppSpacing.section,
             bottomPadding:
                 AppLayout.navigationBarHeight + AppSpacing.pageBottom,
+            onRefresh: () => controller.load(force: true),
             child: AsyncStateView<List<Event>>(
               state: controller.events,
               onRetry: () => controller.load(force: true),
@@ -64,13 +73,16 @@ class EventsPage extends StatelessWidget {
                         onSelected: controller.selectCategory,
                       ),
                     const SizedBox(height: 42),
-                    const SectionTitleRow(title: 'Upcoming Events'),
+                    SectionTitleRow(title: controller.sectionTitle),
                     const SizedBox(height: 28),
                     if (events.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 48),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 48),
                         child: Text(
-                          'No events are currently available.',
+                          controller.selectedCategory ==
+                                  EventsController.pastCategory
+                              ? 'No past events are available.'
+                              : 'No upcoming events are available.',
                           textAlign: TextAlign.center,
                           style: AppTextStyles.bodyLarge,
                         ),

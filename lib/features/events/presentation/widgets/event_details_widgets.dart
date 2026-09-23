@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:pcj_v4/core/theme/app_theme.dart';
 import 'package:pcj_v4/core/utils/app_formatters.dart';
+import 'package:pcj_v4/shared/domain/entities/event.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:pcj_v4/shared/widgets/app_widgets.dart';
 
@@ -29,7 +32,7 @@ class EventStatistics extends StatelessWidget {
           //Weather
           child: StatisticCard(
             icon: Icons.wb_sunny_outlined,
-            label: 'WEATHER',
+            label: 'CURRENT',
             value: Text.rich(
               TextSpan(
                 children: <InlineSpan>[
@@ -75,16 +78,16 @@ class EventStatistics extends StatelessWidget {
             value: Text.rich(
               TextSpan(
                 children: <InlineSpan>[
+                  // TextSpan(
+                  //   text: '$registeredCount ',
+                  //   style: const TextStyle(
+                  //     color: Color(0xFFE5E2E1),
+                  //     fontSize: 28,
+                  //     fontWeight: FontWeight.w600,
+                  //   ),
+                  // ),
                   TextSpan(
-                    text: '$registeredCount ',
-                    style: const TextStyle(
-                      color: Color(0xFFE5E2E1),
-                      fontSize: 28,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  TextSpan(
-                    text: '/ $capacity',
+                    text: '$capacity',
                     style: const TextStyle(
                       color: Color(0xFFB12B28),
                       fontSize: 28,
@@ -191,7 +194,8 @@ class LocationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool hasCoordinates = latitude != null &&
+    final bool hasCoordinates =
+        latitude != null &&
         longitude != null &&
         (latitude != 0 || longitude != 0);
     return Container(
@@ -255,34 +259,106 @@ class LocationCard extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: hasCoordinates
-                  ? GoogleMap(
-                      initialCameraPosition: CameraPosition(
-                        target: LatLng(latitude!, longitude!),
-                        zoom: 14,
-                      ),
-                      markers: <Marker>{
-                        Marker(
-                          markerId: const MarkerId('event-location'),
-                          position: LatLng(latitude!, longitude!),
-                          infoWindow: InfoWindow(title: location),
-                        ),
-                      },
-                      mapToolbarEnabled: false,
-                      myLocationButtonEnabled: false,
-                      zoomControlsEnabled: false,
+                  ? _OpenStreetMap(
+                      latitude: latitude!,
+                      longitude: longitude!,
+                      location: location,
                     )
                   : AppAssetImage(
                       path: mapImageUrl ?? '',
                       fit: BoxFit.cover,
-                      borderRadius: const BorderRadius.all(
-                        Radius.circular(12),
-                      ),
+                      borderRadius: const BorderRadius.all(Radius.circular(12)),
                       fallbackIcon: Icons.map_outlined,
                     ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _OpenStreetMap extends StatelessWidget {
+  const _OpenStreetMap({
+    required this.latitude,
+    required this.longitude,
+    required this.location,
+  });
+
+  final double latitude;
+  final double longitude;
+  final String location;
+
+  @override
+  Widget build(BuildContext context) {
+    final LatLng point = LatLng(latitude, longitude);
+    return Stack(
+      children: <Widget>[
+        Positioned.fill(
+          child: FlutterMap(
+            options: MapOptions(initialCenter: point, initialZoom: 14),
+            children: <Widget>[
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.porscheclubjordan.pcj_v4',
+                maxNativeZoom: 19,
+              ),
+              MarkerLayer(
+                markers: <Marker>[
+                  Marker(
+                    point: point,
+                    width: 48,
+                    height: 48,
+                    child: Tooltip(
+                      message: location,
+                      child: const DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                          boxShadow: <BoxShadow>[
+                            BoxShadow(
+                              color: Color(0x66000000),
+                              blurRadius: 10,
+                              offset: Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          Icons.directions_car_filled_rounded,
+                          color: Colors.white,
+                          size: 25,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Positioned(
+          right: 6,
+          bottom: 6,
+          child: Material(
+            color: Colors.black.withValues(alpha: 0.76),
+            borderRadius: BorderRadius.circular(6),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(6),
+              onTap: () => launchUrl(
+                Uri.parse('https://www.openstreetmap.org/copyright'),
+                mode: LaunchMode.externalApplication,
+              ),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                child: Text(
+                  '© OpenStreetMap contributors',
+                  style: TextStyle(color: Colors.white, fontSize: 9),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -299,6 +375,16 @@ class EventGallery extends StatefulWidget {
 class _EventGallery extends State<EventGallery> {
   final PageController _controller = PageController();
   int _currentPage = 0;
+
+  @override
+  void didUpdateWidget(covariant EventGallery oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_currentPage < widget.images.length) return;
+    _currentPage = 0;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _controller.hasClients) _controller.jumpToPage(0);
+    });
+  }
 
   @override
   void dispose() {
@@ -370,35 +456,65 @@ class _EventGallery extends State<EventGallery> {
 class SponsorsList extends StatelessWidget {
   const SponsorsList({super.key, required this.sponsors});
 
-  final List<String> sponsors;
+  final List<EventSponsor> sponsors;
 
   @override
   Widget build(BuildContext context) {
     if (sponsors.isEmpty) {
-      return const SizedBox(
-        width: double.infinity,
-        height: 32,
-        child: Text(
-          "NONE",
-          textAlign: TextAlign.center,
-          style: AppTextStyles.sectionTitle,
-        ),
+      return const Center(
+        child: Text('No sponsors listed', style: AppTextStyles.body),
       );
     }
 
     return SizedBox(
-      height: 32,
-      child: LayoutBuilder(
-        builder: (BuildContext context, BoxConstraints constraints) {
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minWidth: constraints.maxWidth),
-              child: Text(
-                sponsors.join(', '),
-                textAlign: TextAlign.center,
-                style: AppTextStyles.bodyLarge,
-              ),
+      height: 126,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: sponsors.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
+        itemBuilder: (BuildContext context, int index) {
+          final EventSponsor sponsor = sponsors[index];
+          return Container(
+            width: 200,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.panel,
+              border: Border.all(color: AppColors.cardBorder),
+              borderRadius: BorderRadius.circular(AppRadii.medium),
+            ),
+            child: Column(
+              children: <Widget>[
+                SizedBox(
+                  width: 100,
+                  height: 70,
+                  child: AppAssetImage(
+                    path: sponsor.logoUrl,
+                    fit: BoxFit.fitHeight,
+                    fallbackIcon: Icons.business_outlined,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  sponsor.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.body.copyWith(
+                    color: AppColors.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    height: 1.1,
+                  ),
+                ),
+                //const Spacer(),
+                // Text(
+                //   sponsor.tier.toUpperCase(),
+                //   style: AppTextStyles.label.copyWith(
+                //     color: AppColors.textFaint,
+                //     fontSize: 10,
+                //   ),
+                // ),
+              ],
             ),
           );
         },

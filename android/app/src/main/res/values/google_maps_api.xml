@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Do not commit a production key. Restrict the real key by Android
-         package name and SHA certificate fingerprint in Google Cloud. -->
-    <string name="google_maps_key" translatable="false">YOUR_ANDROID_GOOGLE_MAPS_API_KEY</string>
+    <!-- Event maps now use OpenStreetMap through flutter_map and need no API key. -->
 </resources>

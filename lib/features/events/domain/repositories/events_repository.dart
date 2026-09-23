@@ -12,11 +12,19 @@ class EventRegistrationRequest {
 }
 
 abstract interface class EventsRepository {
-  Future<List<Event>> getEvents({String? category, String? search});
+  Future<List<Event>> getEvents({
+    String? category,
+    String? search,
+    bool forceRefresh = false,
+  });
 
-  Future<Event> getEvent(String eventId);
+  Future<Event> getEvent(
+    String eventId, {
+    bool forceRefresh = false,
+    Event? fallbackEvent,
+  });
 
-  Future<List<Event>> getRecentEvents();
+  Future<List<Event>> getRecentEvents({bool forceRefresh = false});
 
   Future<EventBooking> registerForEvent(EventRegistrationRequest request);
 

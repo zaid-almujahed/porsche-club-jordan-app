@@ -9,12 +9,14 @@ class ProfileUpdate {
     required this.phoneNumber,
     this.city,
     this.dateOfBirth,
+    this.avatar,
   });
 
   final String name;
   final String phoneNumber;
   final String? city;
   final DateTime? dateOfBirth;
+  final AvatarUpload? avatar;
 }
 
 class AvatarUpload {
@@ -25,7 +27,7 @@ class AvatarUpload {
 }
 
 abstract interface class ProfileRepository {
-  Future<User> getProfile();
+  Future<User> getProfile({bool forceRefresh = false});
 
   Future<User> updateProfile(ProfileUpdate update);
 
@@ -39,5 +41,5 @@ abstract interface class ProfileRepository {
 
   Future<void> verifyPhone(String otp);
 
-  Future<List<Vehicle>> getVehicles();
+  Future<List<Vehicle>> getVehicles({bool forceRefresh = false});
 }

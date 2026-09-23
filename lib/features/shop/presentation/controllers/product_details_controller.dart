@@ -92,7 +92,10 @@ class ProductDetailsController extends SafeChangeNotifier {
     _state = AsyncState<Product>.loading(previousData: current);
     notifyListeners();
     try {
-      final Product product = await _repository.getProduct(productId);
+      final Product product = await _repository.getProduct(
+        productId,
+        forceRefresh: true,
+      );
       _state = AsyncState<Product>.success(product);
       _normalizeSelections(product);
     } catch (error, stackTrace) {
@@ -230,6 +233,5 @@ class ProductDetailsController extends SafeChangeNotifier {
     return null;
   }
 
-  static String _normalize(String? value) =>
-      value?.trim().toLowerCase() ?? '';
+  static String _normalize(String? value) => value?.trim().toLowerCase() ?? '';
 }

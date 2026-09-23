@@ -2,58 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:pcj_v4/core/theme/app_theme.dart';
 import 'package:pcj_v4/core/utils/app_formatters.dart';
-import 'package:pcj_v4/shared/domain/entities/vehicle.dart';
 import 'package:pcj_v4/shared/widgets/app_widgets.dart';
-
-class VehicleSelection extends StatelessWidget {
-  const VehicleSelection({
-    super.key,
-    required this.vehicles,
-    required this.selectedVehicle,
-    required this.onChanged,
-  });
-
-  final List<Vehicle> vehicles;
-  final Vehicle? selectedVehicle;
-  final ValueChanged<Vehicle?> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 64,
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: AppColors.primary, width: 1.25),
-        ),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<Vehicle>(
-          isExpanded: true,
-          value: vehicles.contains(selectedVehicle) ? selectedVehicle : null,
-          hint: const Text('Select a registered vehicle'),
-          dropdownColor: AppColors.panel,
-          icon: const Icon(
-            Icons.keyboard_arrow_down,
-            color: AppColors.textSecondary,
-          ),
-          style: AppTextStyles.input,
-          onChanged: vehicles.isEmpty ? null : onChanged,
-          items: vehicles.map((Vehicle vehicle) {
-            return DropdownMenuItem<Vehicle>(
-              value: vehicle,
-              child: Text(
-                vehicle.displayName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            );
-          }).toList(),
-        ),
-      ),
-    );
-  }
-}
 
 class PriceSummary extends StatelessWidget {
   const PriceSummary({
@@ -62,12 +11,14 @@ class PriceSummary extends StatelessWidget {
     required this.guestsPrice,
     required this.total,
     required this.currency,
+    this.showGuests = true,
   });
 
   final double basePrice;
   final double guestsPrice;
   final double total;
   final String currency;
+  final bool showGuests;
 
   @override
   Widget build(BuildContext context) {
@@ -85,12 +36,16 @@ class PriceSummary extends StatelessWidget {
                 ? 'FREE'
                 : AppFormatters.money(basePrice, currency),
           ),
-          const SizedBox(height: AppSpacing.sm),
-          SummaryRow(
-            label: 'Guests',
-            value: AppFormatters.money(guestsPrice, currency),
-            muted: guestsPrice == 0,
-          ),
+          if (showGuests) ...<Widget>[
+            const SizedBox(height: AppSpacing.sm),
+            SummaryRow(
+              label: 'Guests',
+              value: guestsPrice <= 0
+                  ? 'FREE'
+                  : AppFormatters.money(guestsPrice, currency),
+              muted: guestsPrice == 0,
+            ),
+          ],
           const SizedBox(height: AppSpacing.xl),
           const Divider(color: Color(0x66FFFFFF)),
           const SizedBox(height: AppSpacing.xl),

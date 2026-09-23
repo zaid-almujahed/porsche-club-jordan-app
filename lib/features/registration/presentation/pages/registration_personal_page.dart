@@ -8,11 +8,17 @@ import 'package:pcj_v4/shared/widgets/app_widgets.dart';
 import '../controllers/registration_controller.dart';
 import '../widgets/form_widgets.dart';
 import '../widgets/personal_registration_widgets.dart';
+import '../widgets/registration_cancel_dialog.dart';
 
 class RegistrationPersonalPage extends StatelessWidget {
-  const RegistrationPersonalPage({super.key, required this.controller});
+  const RegistrationPersonalPage({
+    super.key,
+    required this.controller,
+    required this.onCancel,
+  });
 
   final RegistrationController controller;
+  final Future<void> Function() onCancel;
 
   Future<void> _selectDateOfBirth(BuildContext context) async {
     final DateTime? selectedDate = await showDatePicker(
@@ -31,7 +37,14 @@ class RegistrationPersonalPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.canvas,
-      appBar: const PorscheAppBar(title: 'Membership Application'),
+      appBar: PorscheAppBar(
+        title: 'Membership Application',
+        showClose: true,
+        onClose: () => confirmRegistrationCancellation(
+          context: context,
+          onCancel: onCancel,
+        ),
+      ),
       body: AnimatedBuilder(
         animation: controller,
         builder: (BuildContext context, Widget? child) {

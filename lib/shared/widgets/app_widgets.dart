@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:io' as io;
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -18,18 +20,24 @@ class PorscheAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.showBack = false,
     this.showNotifications = false,
     this.showCart = false,
+    this.showClose = false,
     this.onBack,
     this.onNotificationsPressed,
     this.onCartPressed,
+    this.onClose,
+    this.unreadNotificationCount,
   });
 
   final String title;
   final bool showBack;
   final bool showNotifications;
   final bool showCart;
+  final bool showClose;
   final VoidCallback? onBack;
   final VoidCallback? onNotificationsPressed;
   final VoidCallback? onCartPressed;
+  final VoidCallback? onClose;
+  final ValueListenable<int>? unreadNotificationCount;
 
   @override
   Size get preferredSize => const Size.fromHeight(69);
@@ -43,7 +51,8 @@ class PorscheAppBar extends StatelessWidget implements PreferredSizeWidget {
       leadingWidth: 64,
       leading: showBack
           ? IconButton(
-              onPressed: onBack ??
+              onPressed:
+                  onBack ??
                   () {
                     // Redirected routes can be the first page in the stack.
                     // Never pop the root route into a blank navigator.
@@ -71,19 +80,82 @@ class PorscheAppBar extends StatelessWidget implements PreferredSizeWidget {
       ),
       actions: <Widget>[
         if (showNotifications)
-          IconButton(
+          _NotificationButton(
             onPressed: onNotificationsPressed ?? () {},
+            unreadCount: unreadNotificationCount,
+          ),
+        if (showClose)
+          IconButton(
+            tooltip: 'Cancel registration',
+            onPressed: onClose,
             icon: const Icon(
-              Icons.notifications_none,
-              size: 23,
+              Icons.close_rounded,
+              size: 25,
               color: AppColors.textPrimary,
             ),
           ),
-        if (showNotifications) const SizedBox(width: 8),
+        if (showNotifications || showClose) const SizedBox(width: 8),
       ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1.0),
         child: Container(color: const Color(0xFF353534), height: 1.0),
+      ),
+    );
+  }
+}
+
+class _NotificationButton extends StatelessWidget {
+  const _NotificationButton({
+    required this.onPressed,
+    required this.unreadCount,
+  });
+
+  final VoidCallback onPressed;
+  final ValueListenable<int>? unreadCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final ValueListenable<int>? count = unreadCount;
+    if (count == null) return _buildButton(0);
+    return ValueListenableBuilder<int>(
+      valueListenable: count,
+      builder: (BuildContext context, int value, Widget? child) {
+        return _buildButton(value);
+      },
+    );
+  }
+
+  Widget _buildButton(int unreadCount) {
+    final bool hasUnread = unreadCount > 0;
+    return IconButton(
+      tooltip: hasUnread
+          ? 'Notifications, $unreadCount unread'
+          : 'Notifications',
+      onPressed: onPressed,
+      icon: Stack(
+        clipBehavior: Clip.none,
+        children: <Widget>[
+          const Icon(
+            Icons.notifications_none,
+            size: 23,
+            color: AppColors.textPrimary,
+          ),
+          if (hasUnread)
+            Positioned(
+              top: -1,
+              right: -1,
+              child: Container(
+                key: const ValueKey<String>('unread-notifications-dot'),
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryBright,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.appBar, width: 1.2),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -95,11 +167,13 @@ class AppPageBody extends StatelessWidget {
     required this.child,
     this.topPadding = AppSpacing.xl,
     this.bottomPadding = AppSpacing.pageBottom,
+    this.onRefresh,
   });
 
   final Widget child;
   final double topPadding;
   final double bottomPadding;
+  final Future<void> Function()? onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -109,8 +183,11 @@ class AppPageBody extends StatelessWidget {
           constraints.maxWidth,
         );
 
-        return SingleChildScrollView(
+        final Widget scrollView = SingleChildScrollView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          physics: onRefresh == null
+              ? null
+              : const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.fromLTRB(
             horizontalPadding,
             topPadding,
@@ -125,6 +202,18 @@ class AppPageBody extends StatelessWidget {
               child: child,
             ),
           ),
+        );
+
+        if (onRefresh == null) return scrollView;
+        return RefreshIndicator(
+          color: AppColors.primaryBright,
+          backgroundColor: AppColors.panelDark,
+          displacement: 24,
+          edgeOffset: AppSpacing.xs,
+          elevation: 0,
+          strokeWidth: 2.2,
+          onRefresh: onRefresh!,
+          child: scrollView,
         );
       },
     );
@@ -187,6 +276,8 @@ class AppAssetImage extends StatelessWidget {
         path.startsWith('http://') || path.startsWith('https://');
     final bool isDataImage =
         path.startsWith('data:image/') && path.contains(',');
+    final bool isAbsoluteFile =
+        path.startsWith('/') || RegExp(r'^[A-Za-z]:[\\/]').hasMatch(path);
 
     final Widget image;
     if (isDataImage) {
@@ -204,6 +295,8 @@ class AppAssetImage extends StatelessWidget {
       }
     } else if (isRemote) {
       image = Image.network(path, fit: fit, errorBuilder: _buildFallback);
+    } else if (isAbsoluteFile) {
+      image = Image.file(io.File(path), fit: fit, errorBuilder: _buildFallback);
     } else {
       image = Image.asset(path, fit: fit, errorBuilder: _buildFallback);
     }
@@ -270,7 +363,15 @@ class AsyncStateView<T> extends StatelessWidget {
     if (state.isLoading && data == null) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 64),
-        child: Center(child: CircularProgressIndicator()),
+        child: Center(
+          child: SizedBox.square(
+            dimension: 30,
+            child: CircularProgressIndicator(
+              color: AppColors.primaryBright,
+              strokeWidth: 2.2,
+            ),
+          ),
+        ),
       );
     }
 
@@ -314,18 +415,10 @@ class AsyncStateView<T> extends StatelessWidget {
       );
     }
 
-    return Stack(
-      children: <Widget>[
-        builder(context, data),
-        if (state.isLoading)
-          const Positioned(
-            left: 0,
-            right: 0,
-            top: 0,
-            child: LinearProgressIndicator(minHeight: 2),
-          ),
-      ],
-    );
+    // Pull-to-refresh already supplies progress feedback. Keeping the current
+    // content in place avoids the generic full-width loading bar flashing over
+    // every refreshed section.
+    return builder(context, data);
   }
 }
 
@@ -650,17 +743,25 @@ class _MemberValue extends StatelessWidget {
           style: AppTextStyles.label,
         ),
         const SizedBox(height: AppSpacing.xs),
-        Text(
-          value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: alignment == CrossAxisAlignment.end
-              ? TextAlign.right
-              : TextAlign.left,
-          style: TextStyle(
-            color: valueColor,
-            fontSize: 23,
-            fontWeight: FontWeight.w600,
+        SizedBox(
+          width: double.infinity,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: alignment == CrossAxisAlignment.end
+                ? Alignment.centerRight
+                : Alignment.centerLeft,
+            child: Text(
+              value,
+              maxLines: 1,
+              textAlign: alignment == CrossAxisAlignment.end
+                  ? TextAlign.right
+                  : TextAlign.left,
+              style: TextStyle(
+                color: valueColor,
+                fontSize: 23,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ),
       ],
@@ -712,8 +813,13 @@ class AppBottomNavigation extends StatelessWidget {
                       onTap: section == selected
                           ? null
                           : () {
-                              onSelected?.call(section);
-                              context.goNamed(section.name);
+                              final ValueChanged<AppSection>? callback =
+                                  onSelected;
+                              if (callback != null) {
+                                callback(section);
+                              } else {
+                                context.goNamed(section.name);
+                              }
                             },
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,

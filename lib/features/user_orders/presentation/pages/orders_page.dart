@@ -24,6 +24,7 @@ class OrdersPage extends StatelessWidget {
         builder: (BuildContext context, Widget? child) {
           return AppPageBody(
             topPadding: AppSpacing.xl,
+            onRefresh: () => controller.load(force: true),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
@@ -47,7 +48,14 @@ class OrdersPage extends StatelessWidget {
                           index < orders.length;
                           index++
                         ) ...<Widget>[
-                          _OrderCardFromEntity(order: orders[index]),
+                          _OrderCardFromEntity(
+                            order: orders[index],
+                            onTap: () => showOrderDetailsDialog(
+                              context: context,
+                              controller: controller,
+                              orderId: orders[index].id,
+                            ),
+                          ),
                           if (index != orders.length - 1)
                             const SizedBox(height: 27),
                         ],
@@ -65,30 +73,41 @@ class OrdersPage extends StatelessWidget {
 }
 
 class _OrderCardFromEntity extends StatelessWidget {
-  const _OrderCardFromEntity({required this.order});
+  const _OrderCardFromEntity({required this.order, required this.onTap});
 
   final Order order;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final CartItem? firstItem = order.items.isEmpty ? null : order.items.first;
     final String productName = order.items.length == 1
         ? firstItem!.product.name
-        : '${order.items.length} products';
-    final String deliveryDate = order.estimatedDelivery == null
-        ? 'To be confirmed'
-        : AppFormatters.date(order.estimatedDelivery!);
+        : order.items.length > 1
+        ? '${order.items.length} products'
+        : <String>[
+            AppFormatters.initCap(order.deliveryMethod),
+            AppFormatters.initCap(order.paymentMethod),
+          ].where((String value) => value.isNotEmpty).join(' · ');
+    final String createdDate = order.createdAt.millisecondsSinceEpoch == 0
+        ? 'Not available'
+        : AppFormatters.date(order.createdAt.toLocal());
 
     return OrderCard(
       imagePath: firstItem?.product.primaryImageUrl ?? '',
       orderId: '#${order.id}',
       productName: productName,
       status: order.status.name.toUpperCase(),
-      deliveryDate: deliveryDate,
+      createdDate: createdDate,
       total: AppFormatters.money(order.total, order.currency),
-      accentColor: order.status == OrderStatus.processing
+      accentColor:
+          order.status == OrderStatus.pending ||
+              order.status == OrderStatus.processing
           ? AppColors.primaryBright
+          : order.status == OrderStatus.cancelled
+          ? AppColors.danger
           : AppColors.inputBorder,
+      onTap: onTap,
     );
   }
 }

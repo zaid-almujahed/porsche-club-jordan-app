@@ -24,22 +24,23 @@ class PlaceOrderRequest {
   });
 
   final DeliveryMethod deliveryMethod;
-  final String paymentMethod;
+  final PaymentMethod paymentMethod;
   final String? deliveryAddress;
 }
 
 abstract interface class ShopRepository {
-  Future<List<Product>> getProducts({String? category});
+  Future<List<Product>> getProducts({
+    String? category,
+    bool forceRefresh = false,
+  });
 
-  Future<Product> getProduct(String productId);
+  Future<Product> getProduct(String productId, {bool forceRefresh = false});
 
   Future<Cart> getCart();
 
   Future<Cart> addToCart(AddToCartRequest request);
 
-  Future<Cart> updateCartItemQuantity(String cartItemId, int quantity);
-
-  Future<Cart> removeCartItem(String cartItemId);
+  Future<Cart> removeCartItem(CartItem item);
 
   Future<Order> placeOrder(PlaceOrderRequest request);
 

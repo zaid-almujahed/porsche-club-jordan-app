@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:pcj_v4/core/errors/app_exception.dart';
 import 'package:pcj_v4/core/theme/app_theme.dart';
 import 'package:pcj_v4/shared/domain/entities/membership.dart';
+import 'package:pcj_v4/shared/domain/entities/user.dart';
+import 'package:pcj_v4/shared/widgets/app_dialog.dart';
 import 'package:pcj_v4/shared/widgets/app_widgets.dart';
 
-import '../../../../shared/domain/entities/user.dart';
 import '../controllers/membership_payment_controller.dart';
 import '../widgets/payment_page_widgets.dart';
 
@@ -29,30 +30,17 @@ class MembershipPaymentPage extends StatelessWidget {
   }
 
   Future<void> _confirmClose(BuildContext context) async {
-    final bool confirmed =
-        await showDialog<bool>(
-          context: context,
-          builder: (BuildContext dialogContext) => AlertDialog(
-            backgroundColor: AppColors.panelDark,
-            surfaceTintColor: AppColors.panelDark,
-            title: const Text('Sign out?'),
-            content: const Text(
-              'Your application is approved, but your membership is not active '
-              'until payment is completed. Are you sure you want to sign out?',
-            ),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: const Text('Stay'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: const Text('Sign Out'),
-              ),
-            ],
-          ),
-        ) ??
-        false;
+    final bool confirmed = await showAppConfirmationDialog(
+      context: context,
+      title: 'Sign out?',
+      message:
+          'Your application is approved, but your membership is not active '
+          'until payment is completed. Are you sure you want to sign out?',
+      confirmLabel: 'Sign Out',
+      cancelLabel: 'Stay Here',
+      icon: Icons.logout_rounded,
+      isDestructive: true,
+    );
     if (!confirmed || !context.mounted) return;
     await onClose();
   }
@@ -87,153 +75,156 @@ class MembershipPaymentPage extends StatelessWidget {
                 AppPageBody(
                   topPadding: 58,
                   bottomPadding: AppSpacing.xxs,
+                  onRefresh: () => controller.load(force: true),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: <Widget>[
-                    const SizedBox(
-                      height: 70,
-                      child: AppAssetImage(
-                        path: 'assets/images/porsche_club_jordan_logo.png',
-                        fit: BoxFit.contain,
-                        fallbackIcon: Icons.shield_outlined,
-                        fallbackLabel: 'PORSCHE CLUB JORDAN',
+                      const SizedBox(
+                        height: 70,
+                        child: AppAssetImage(
+                          path: 'assets/images/porsche_club_jordan_logo.png',
+                          fit: BoxFit.contain,
+                          fallbackIcon: Icons.shield_outlined,
+                          fallbackLabel: 'PORSCHE CLUB JORDAN',
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 48),
-                    Text(
-                      'Application Approved',
-                      textAlign: TextAlign.center,
-                      style: AppTextStyles.pageTitle.copyWith(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w400,
+                      const SizedBox(height: 48),
+                      Text(
+                        'Application Approved',
+                        textAlign: TextAlign.center,
+                        style: AppTextStyles.pageTitle.copyWith(
+                          fontSize: 30,
+                          fontWeight: FontWeight.w400,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    const Text(
-                      'Complete your payment to activate your Porsche Club '
-                      'Jordan membership.',
-                      textAlign: TextAlign.center,
-                      style: AppTextStyles.bodyLarge,
-                    ),
-                    const SizedBox(height: 82),
-                    AsyncStateView<Membership>(
-                      state: controller.state,
-                      onRetry: () => controller.load(force: true),
-                      builder: (BuildContext context, Membership membership) {
-                        return GradientPanel(
-                          padding: const EdgeInsets.all(36),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: <Widget>[
-                              Text(
-                                'Membership Activation',
-                                style: AppTextStyles.pageTitle.copyWith(
-                                  fontSize: 27,
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                              const SizedBox(height: AppSpacing.lg),
-                              const Divider(),
-                              const SizedBox(height: 34),
-                              MembershipFee(
-                                amount: membership.annualFee,
-                                currency: membership.currency,
-                              ),
-                              const SizedBox(height: 34),
-                              const Text(
-                                'GIFT OR REFERRAL CODE',
-                                style: AppTextStyles.label,
-                              ),
-                              const SizedBox(height: AppSpacing.sm),
-                              Row(
-                                children: <Widget>[
-                                  Expanded(
-                                    flex: 2,
-                                    child: TextField(
-                                      controller:
-                                          controller.referralCodeController,
-                                      style: AppTextStyles.input,
-                                      textInputAction: TextInputAction.done,
-                                      decoration: const InputDecoration(
-                                        hintText: '12-digit code',
-                                      ),
-                                      onChanged: controller.referralCodeChanged,
-                                      onSubmitted: (_) {
-                                        controller.applyReferralCode();
-                                      },
-                                    ),
+                      const SizedBox(height: AppSpacing.xs),
+                      const Text(
+                        'Complete your payment to activate your Porsche Club '
+                        'Jordan membership.',
+                        textAlign: TextAlign.center,
+                        style: AppTextStyles.bodyLarge,
+                      ),
+                      const SizedBox(height: 82),
+                      AsyncStateView<Membership>(
+                        state: controller.state,
+                        onRetry: () => controller.load(force: true),
+                        builder: (BuildContext context, Membership membership) {
+                          return GradientPanel(
+                            padding: const EdgeInsets.all(36),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: <Widget>[
+                                Text(
+                                  'Membership Activation',
+                                  style: AppTextStyles.pageTitle.copyWith(
+                                    fontSize: 27,
+                                    fontWeight: FontWeight.w400,
                                   ),
-                                  const SizedBox(width: AppSpacing.sm),
-                                  Expanded(
-                                    child: SizedBox(
-                                      height: 58,
-                                      child: FilledButton(
-                                        onPressed: controller.applyReferralCode,
-                                        child: Text(
-                                          controller.hasAppliedReferralCode
-                                              ? 'Applied'
-                                              : 'Apply',
+                                ),
+                                const SizedBox(height: AppSpacing.lg),
+                                const Divider(),
+                                const SizedBox(height: 34),
+                                MembershipFee(
+                                  amount: membership.annualFee,
+                                  currency: membership.currency,
+                                ),
+                                const SizedBox(height: 34),
+                                const Text(
+                                  'GIFT OR REFERRAL CODE',
+                                  style: AppTextStyles.label,
+                                ),
+                                const SizedBox(height: AppSpacing.sm),
+                                Row(
+                                  children: <Widget>[
+                                    Expanded(
+                                      flex: 2,
+                                      child: TextField(
+                                        controller:
+                                            controller.referralCodeController,
+                                        style: AppTextStyles.input,
+                                        textInputAction: TextInputAction.done,
+                                        decoration: const InputDecoration(
+                                          hintText: '12-digit code',
+                                        ),
+                                        onChanged:
+                                            controller.referralCodeChanged,
+                                        onSubmitted: (_) {
+                                          controller.applyReferralCode();
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: AppSpacing.sm),
+                                    Expanded(
+                                      child: SizedBox(
+                                        height: 58,
+                                        child: FilledButton(
+                                          onPressed:
+                                              controller.applyReferralCode,
+                                          child: Text(
+                                            controller.hasAppliedReferralCode
+                                                ? 'Applied'
+                                                : 'Apply',
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 34),
-                              const Text(
-                                'PAYMENT METHOD',
-                                style: AppTextStyles.label,
-                              ),
-                              const SizedBox(height: AppSpacing.sm),
-                              PaymentMethodTile(
-                                label: 'Credit / Debit Card\n(MEPS)',
-                                selected:
-                                    controller.paymentMethod == 'meps_card',
-                                onPressed: () =>
-                                    controller.selectPaymentMethod('meps_card'),
-                              ),
-                            ],
+                                  ],
+                                ),
+                                const SizedBox(height: 34),
+                                const Text(
+                                  'PAYMENT METHOD',
+                                  style: AppTextStyles.label,
+                                ),
+                                const SizedBox(height: AppSpacing.sm),
+                                PaymentMethodTile(
+                                  label: 'Credit / Debit Card\n(MEPS)',
+                                  selected:
+                                      controller.paymentMethod == 'meps_card',
+                                  onPressed: () => controller
+                                      .selectPaymentMethod('meps_card'),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                      if (controller.paymentError != null) ...<Widget>[
+                        const SizedBox(height: AppSpacing.md),
+                        Text(
+                          readableError(controller.paymentError!),
+                          textAlign: TextAlign.center,
+                          style: AppTextStyles.body.copyWith(
+                            color: AppColors.danger,
                           ),
-                        );
-                      },
-                    ),
-                    if (controller.paymentError != null) ...<Widget>[
-                      const SizedBox(height: AppSpacing.md),
-                      Text(
-                        readableError(controller.paymentError!),
-                        textAlign: TextAlign.center,
-                        style: AppTextStyles.body.copyWith(
-                          color: AppColors.danger,
                         ),
-                      ),
-                    ],
-                    if (controller.paymentNotice != null) ...<Widget>[
-                      const SizedBox(height: AppSpacing.md),
-                      Text(
-                        controller.paymentNotice!,
-                        textAlign: TextAlign.center,
-                        style: AppTextStyles.body.copyWith(
-                          color: AppColors.warning,
+                      ],
+                      if (controller.paymentNotice != null) ...<Widget>[
+                        const SizedBox(height: AppSpacing.md),
+                        Text(
+                          controller.paymentNotice!,
+                          textAlign: TextAlign.center,
+                          style: AppTextStyles.body.copyWith(
+                            color: AppColors.warning,
+                          ),
                         ),
+                      ],
+                      const SizedBox(height: 82),
+                      PrimaryActionButton(
+                        label: controller.isPaying
+                            ? 'Processing Payment...'
+                            : 'Start Payment',
+                        onPressed:
+                            controller.isPaying || !controller.state.hasData
+                            ? null
+                            : _payAndActivate,
                       ),
-                    ],
-                    const SizedBox(height: 82),
-                    PrimaryActionButton(
-                      label: controller.isPaying
-                          ? 'Processing Payment...'
-                          : 'Start Payment',
-                      onPressed:
-                          controller.isPaying || !controller.state.hasData
-                          ? null
-                          : _payAndActivate,
-                    ),
-                    const SizedBox(height: AppSpacing.xl),
-                    const Text(
-                      'Membership access begins only after the backend '
-                      'confirms the payment or activation code.',
-                      textAlign: TextAlign.center,
-                      style: AppTextStyles.body,
-                    ),
+                      const SizedBox(height: AppSpacing.xl),
+                      const Text(
+                        'Membership access begins only after the backend '
+                        'confirms the payment or activation code.',
+                        textAlign: TextAlign.center,
+                        style: AppTextStyles.body,
+                      ),
                     ],
                   ),
                 ),

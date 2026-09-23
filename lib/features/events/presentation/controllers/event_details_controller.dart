@@ -30,7 +30,13 @@ class EventDetailsController extends SafeChangeNotifier {
     _state = AsyncState<Event>.loading(previousData: current);
     notifyListeners();
     try {
-      _state = AsyncState<Event>.success(await _repository.getEvent(eventId));
+      _state = AsyncState<Event>.success(
+        await _repository.getEvent(
+          eventId,
+          forceRefresh: true,
+          fallbackEvent: current,
+        ),
+      );
     } catch (error, stackTrace) {
       _state = AsyncState<Event>.failure(
         error,

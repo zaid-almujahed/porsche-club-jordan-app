@@ -24,14 +24,19 @@ class UserEventsController extends ChangeNotifier {
 
   Future<void> load({bool force = false}) async {
     if (!force && (_bookings.isLoading || _bookings.hasData)) return;
-    await _fetch();
+    await _fetch(force: force);
   }
 
   Future<void> showTab({required bool upcoming}) async {
     if (_showUpcoming == upcoming) return;
     _showUpcoming = upcoming;
+    _actionError = null;
+    // Data from the other tab must never remain visible under the newly
+    // selected label. The repository still reuses its one-minute response
+    // cache, so this does not force an unnecessary network request.
+    _bookings = const AsyncState<List<EventBooking>>.initial();
     notifyListeners();
-    await _fetch();
+    await _fetch(preserveData: false);
   }
 
   Future<bool> cancelRegistration(EventBooking booking) async {
@@ -42,7 +47,18 @@ class UserEventsController extends ChangeNotifier {
     notifyListeners();
     try {
       await _repository.cancelRegistration(eventId);
-      await _fetch();
+      final List<EventBooking>? current = _bookings.data;
+      if (current != null) {
+        _bookings = AsyncState<List<EventBooking>>.success(
+          List<EventBooking>.unmodifiable(
+            current.where(
+              (EventBooking value) => value.event.id != eventId,
+            ),
+          ),
+        );
+        notifyListeners();
+      }
+      await _fetch(force: true);
       return true;
     } catch (error) {
       _actionError = error;
@@ -53,15 +69,21 @@ class UserEventsController extends ChangeNotifier {
     }
   }
 
-  Future<void> _fetch() async {
+  Future<void> _fetch({bool force = false, bool preserveData = true}) async {
     final int requestId = ++_requestId;
+    final List<EventBooking>? previousData = preserveData
+        ? _bookings.data
+        : null;
     _bookings = AsyncState<List<EventBooking>>.loading(
-      previousData: _bookings.data,
+      previousData: previousData,
     );
     notifyListeners();
     try {
       final List<EventBooking> bookings = List<EventBooking>.unmodifiable(
-        await _repository.getBookings(upcoming: _showUpcoming),
+        await _repository.getBookings(
+          upcoming: _showUpcoming,
+          forceRefresh: force,
+        ),
       );
       if (requestId != _requestId) return;
       _bookings = AsyncState<List<EventBooking>>.success(bookings);
@@ -70,7 +92,7 @@ class UserEventsController extends ChangeNotifier {
       _bookings = AsyncState<List<EventBooking>>.failure(
         error,
         stackTrace,
-        previousData: _bookings.data,
+        previousData: previousData,
       );
     }
     if (requestId != _requestId) return;

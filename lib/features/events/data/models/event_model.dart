@@ -20,7 +20,7 @@ class EventModel extends Event {
     required super.guestFee,
     super.currency,
     super.sponsors,
-    super.galleryUrls,
+    super.gallery,
     super.mapImageUrl,
     super.latitude,
     super.longitude,
@@ -31,163 +31,165 @@ class EventModel extends Event {
   });
 
   factory EventModel.fromSummaryJson(Map<String, dynamic> json) {
-    return EventModel._fromJson(json, detailed: false);
+    return EventModel._fromJson(json, detailed: false, usesEventId: false);
   }
 
-  factory EventModel.fromDetailsJson(Map<String, dynamic> json) {
-    return EventModel._fromJson(json, detailed: true);
-  }
-
-  factory EventModel._fromJson(
-    Map<String, dynamic> source, {
-    required bool detailed,
+  factory EventModel.fromDetailsJson(
+    Map<String, dynamic> json, {
+    Event? fallbackEvent,
   }) {
-    final Object? nested = source['event'];
-    final Map<String, dynamic> json = nested is Map
-        ? Map<String, dynamic>.from(nested)
-        : source;
-    final DateTime startsAt =
-        firstDateTime(json, const <String>['start_at', 'starts_at']) ??
-        DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
-
-    return EventModel(
-      id: firstString(json, const <String>['id', 'event_id']) ?? '',
-      title: firstString(json, const <String>['title', 'name']) ?? '',
-      description:
-          firstString(json, const <String>['description', 'overview']) ?? '',
-      location: firstString(json, const <String>['location', 'venue']) ?? '',
-      startsAt: startsAt,
-      endsAt:
-          firstDateTime(json, const <String>['end_at', 'ends_at']) ?? startsAt,
-      category:
-          firstString(json, const <String>['category', 'event_type', 'type']) ??
-          'Event',
-      posterUrl:
-          firstString(json, const <String>[
-            'cover_image',
-            'poster_url',
-            'image_url',
-          ]) ??
-          '',
-      capacity: firstInt(json, const <String>['capacity']) ?? 0,
-      registeredCount:
-          firstInt(json, const <String>[
-            'registered',
-            'registered_count',
-            'rsvp_count',
-            'attendees_count',
-          ]) ??
-          0,
-      guestLimit:
-          firstInt(json, const <String>[
-            'guest_limit',
-            'max_guests',
-            'max_guest_count',
-          ]) ??
-          0,
-      registrationFee:
-          firstDouble(json, const <String>[
-            'registration_fee',
-            'base_price',
-            'price',
-          ]) ??
-          0,
-      guestFee:
-          firstDouble(json, const <String>['guest_fee', 'guest_price']) ?? 0,
-      currency: firstString(json, const <String>['currency']) ?? 'JOD',
-      sponsors: detailed
-          ? _sponsors(json['sponsors'] ?? json['sponsor'])
-          : const <String>[],
-      galleryUrls: detailed
-          ? _imageUrls(json['gallery'] ?? json['images'] ?? json['photos'])
-          : const <String>[],
-      mapImageUrl: firstString(json, const <String>[
-        'map_image_url',
-        'map_url',
-      ]),
-      latitude: firstDouble(json, const <String>['latitude', 'lat']),
-      longitude: firstDouble(json, const <String>['longitude', 'lng', 'lon']),
-      availableCount: firstInt(json, const <String>['available']),
-      weatherCelsius: firstInt(json, const <String>[
-        'weather_celsius',
-        'temperature',
-      ]),
-      isPaid:
-          _bool(json['is_paid']) ||
-          (firstDouble(json, const <String>[
-                    'registration_fee',
-                    'base_price',
-                    'price',
-                  ]) ??
-                  0) >
-              0 ||
-          (firstDouble(json, const <String>['guest_fee', 'guest_price']) ??
-                  0) >
-              0,
-      isFeatured: _bool(json['is_featured'] ?? json['featured']),
+    return EventModel._fromJson(
+      json,
+      detailed: true,
+      usesEventId: false,
+      fallbackEvent: fallbackEvent,
     );
   }
 
-  static List<String> _sponsors(Object? value) {
-    final List<Object?> values = value is List
-        ? value.cast<Object?>()
-        : value is Map
-        ? <Object?>[value]
-        : const <Object?>[];
-    return values
-        .map<String>((Object? sponsor) {
-          if (sponsor is String) return sponsor;
-          if (sponsor is Map) {
-            final Map<String, dynamic> json = Map<String, dynamic>.from(
-              sponsor,
-            );
-            final Object? nested = json['sponsor'];
-            if (nested is Map) {
-              final String? name = firstString(
-                Map<String, dynamic>.from(nested),
-                const <String>['name', 'title'],
-              );
-              if (name != null) return name;
-            }
-            return firstString(json, const <String>[
-                  'name',
-                  'sponsor_name',
-                  'title',
-                  'tier',
-                ]) ??
-                'Sponsor ${json['sponsor_id'] ?? ''}'.trim();
-          }
-          return sponsor?.toString() ?? '';
-        })
-        .where((String value) => value.isNotEmpty)
-        .toList(growable: false);
+  factory EventModel.fromMemberEventJson(Map<String, dynamic> json) {
+    return EventModel._fromJson(
+      json,
+      detailed: false,
+      usesEventId: true,
+    );
   }
 
-  static List<String> _imageUrls(Object? value) {
-    final List<Object?> values = value is List
-        ? value.cast<Object?>()
-        : value is Map
-        ? <Object?>[value]
-        : const <Object?>[];
-    return values
-        .map<String?>((Object? image) {
-          if (image is String) return image;
-          if (image is Map) {
-            return firstString(Map<String, dynamic>.from(image), const <String>[
-              'image_url',
-              'url',
-              'path',
-            ]);
-          }
-          return null;
-        })
-        .whereType<String>()
-        .toList(growable: false);
+  factory EventModel._fromJson(
+    Map<String, dynamic> json, {
+    required bool detailed,
+    required bool usesEventId,
+    Event? fallbackEvent,
+  }) {
+    final DateTime startsAt =
+        firstDateTime(json, const <String>['start_at']) ??
+        fallbackEvent?.startsAt ??
+        DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+    final int capacity =
+        firstInt(json, const <String>['capacity']) ??
+        fallbackEvent?.capacity ??
+        0;
+    final int guestLimit = fallbackEvent?.guestLimit ??
+        (capacity > 1 ? capacity - 1 : 1);
+
+    return EventModel(
+      id: firstString(
+            json,
+            <String>[usesEventId ? 'event_id' : 'id'],
+          ) ??
+          fallbackEvent?.id ??
+          '',
+      title:
+          firstString(json, const <String>['title']) ??
+          fallbackEvent?.title ??
+          '',
+      description:
+          firstString(json, const <String>['description']) ??
+          fallbackEvent?.description ??
+          '',
+      location:
+          firstString(json, const <String>['location']) ??
+          fallbackEvent?.location ??
+          '',
+      startsAt: startsAt,
+      // The supplied event contracts do not contain an end time. Retain a
+      // previously hydrated value when available; otherwise the only
+      // documented timestamp is used as the event boundary.
+      endsAt: fallbackEvent?.endsAt ?? startsAt,
+      category: fallbackEvent?.category ?? 'Event',
+      posterUrl: firstString(json, const <String>['cover_image']) ??
+          fallbackEvent?.posterUrl ??
+          '',
+      capacity: capacity,
+      registeredCount: fallbackEvent?.registeredCount ?? 0,
+      guestLimit: guestLimit,
+      registrationFee: fallbackEvent?.registrationFee ?? 0,
+      guestFee: 0,
+      currency: fallbackEvent?.currency ?? 'JOD',
+      sponsors: detailed
+          ? _sponsors(json['sponsors'])
+          : fallbackEvent?.sponsors ?? const <EventSponsor>[],
+      gallery: detailed
+          ? _gallery(json['gallery'])
+          : fallbackEvent?.gallery ?? const <EventGalleryItem>[],
+      mapImageUrl: fallbackEvent?.mapImageUrl,
+      latitude: firstDouble(json, const <String>['latitude']) ??
+          fallbackEvent?.latitude,
+      longitude: firstDouble(json, const <String>['longitude']) ??
+          fallbackEvent?.longitude,
+      availableCount: fallbackEvent?.availableCount,
+      weatherCelsius: fallbackEvent?.weatherCelsius,
+      isPaid: json['is_paid'] == true || (fallbackEvent?.isPaid ?? false),
+      isFeatured: fallbackEvent?.isFeatured ?? false,
+    );
   }
 
-  static bool _bool(Object? value) {
-    if (value is bool) return value;
-    final String normalized = value?.toString().toLowerCase() ?? '';
-    return normalized == 'true' || normalized == '1';
+  static List<EventSponsor> _sponsors(Object? value) {
+    if (value is! List) return const <EventSponsor>[];
+    final List<EventSponsor> sponsors = value
+        .whereType<Map>()
+        .map<EventSponsor?>((Map item) {
+          final Map<String, dynamic> json = Map<String, dynamic>.from(item);
+          final String? sponsorId = firstString(
+            json,
+            const <String>['sponsor_id'],
+          );
+          final String? tier = firstString(json, const <String>['tier']);
+          final String? name = firstString(
+            json,
+            const <String>['sponor_name'],
+          );
+          final String? logoUrl = firstString(
+            json,
+            const <String>['sponsor_logo'],
+          );
+          if (sponsorId == null ||
+              tier == null ||
+              name == null ||
+              logoUrl == null) {
+            return null;
+          }
+          return EventSponsor(
+            sponsorId: sponsorId,
+            tier: tier,
+            name: name,
+            logoUrl: logoUrl,
+          );
+        })
+        .whereType<EventSponsor>()
+        .toList();
+    sponsors.sort(
+      (EventSponsor left, EventSponsor right) =>
+          _tierOrder(left.tier).compareTo(_tierOrder(right.tier)),
+    );
+    return List<EventSponsor>.unmodifiable(sponsors);
+  }
+
+  static int _tierOrder(String tier) {
+    return switch (tier.trim().toLowerCase()) {
+      'platinum' => 0,
+      'gold' => 1,
+      'silver' => 2,
+      'bronze' => 3,
+      _ => 4,
+    };
+  }
+
+  static List<EventGalleryItem> _gallery(Object? value) {
+    if (value is! List) return const <EventGalleryItem>[];
+    return value
+        .whereType<Map>()
+        .map<EventGalleryItem?>((Map item) {
+          final Map<String, dynamic> json = Map<String, dynamic>.from(item);
+          final String? id = firstString(json, const <String>['id']);
+          final String? type = firstString(json, const <String>['type']);
+          final String? fileUrl = firstString(
+            json,
+            const <String>['file_url'],
+          );
+          if (id == null || type == null || fileUrl == null) return null;
+          return EventGalleryItem(id: id, type: type, fileUrl: fileUrl);
+        })
+        .whereType<EventGalleryItem>()
+        .toList(growable: false);
   }
 }

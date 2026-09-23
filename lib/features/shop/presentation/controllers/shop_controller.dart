@@ -23,7 +23,7 @@ class ShopController extends ChangeNotifier {
 
   Future<void> load({bool force = false}) async {
     if (!force && (_products.isLoading || _products.hasData)) return;
-    await _fetch();
+    await _fetch(forceRefresh: force);
   }
 
   void selectCategory(String? category) {
@@ -33,13 +33,13 @@ class ShopController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _fetch() async {
+  Future<void> _fetch({required bool forceRefresh}) async {
     final int requestId = ++_requestId;
     _products = AsyncState<List<Product>>.loading(previousData: _products.data);
     notifyListeners();
     try {
       final List<Product> products = List<Product>.unmodifiable(
-        await _repository.getProducts(),
+        await _repository.getProducts(forceRefresh: forceRefresh),
       );
       if (requestId != _requestId) return;
       _allProducts = products;

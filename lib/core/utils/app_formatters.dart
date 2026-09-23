@@ -18,6 +18,19 @@ abstract final class AppFormatters {
     return '${amount.toStringAsFixed(2)} $currency';
   }
 
+  static String initCap(String value) {
+    final String trimmed = value.trim();
+    if (trimmed.isEmpty ||
+        RegExp(r'^#?[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$').hasMatch(trimmed)) {
+      return trimmed;
+    }
+    return trimmed.toLowerCase().replaceAllMapped(
+      RegExp(r'(^|[\s\-/])([a-z])'),
+      (Match match) =>
+          '${match.group(1) ?? ''}${match.group(2)!.toUpperCase()}',
+    );
+  }
+
   static String date(DateTime value) {
     return '${value.day.toString().padLeft(2, '0')} '
         '${_months[value.month - 1]}, ${value.year}';

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -13,34 +14,57 @@ import '../widgets/offer_tiles.dart';
 import '../widgets/popular_shop_items.dart';
 
 class HomePage extends StatelessWidget {
-  const HomePage({super.key, required this.controller, this.user});
+  const HomePage({
+    super.key,
+    required this.controller,
+    this.user,
+    this.unreadNotificationCount,
+  });
 
   final HomeController controller;
   final User? user;
+  final ValueListenable<int>? unreadNotificationCount;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
       backgroundColor: AppColors.canvas,
-      appBar: const PorscheAppBar(title: 'Home'),
-      bottomNavigationBar: const AppBottomNavigation(selected: AppSection.home),
+      appBar: PorscheAppBar(
+        title: 'Home',
+        showNotifications: true,
+        unreadNotificationCount: unreadNotificationCount,
+        onNotificationsPressed: () => context.push(AppRoutes.notifications),
+      ),
       body: AnimatedBuilder(
         animation: controller,
         builder: (BuildContext context, Widget? child) {
           return AppPageBody(
             bottomPadding:
                 AppLayout.navigationBarHeight + AppSpacing.pageBottom,
+            onRefresh: () => controller.load(force: true),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
+                const Text(
+                  'Welcome back,',
+                  style: TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w400,
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
                 Text(
-                  'Welcome back,\n${user?.name ?? 'Member'}',
+                  user?.name ?? 'Member',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: AppColors.textPrimary,
-                    fontSize: 48,
+                    fontSize: 30,
                     fontWeight: FontWeight.w600,
-                    height: 1.08,
+                    height: 1.12,
                   ),
                 ),
                 const SizedBox(height: 66),

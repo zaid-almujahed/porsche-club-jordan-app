@@ -26,7 +26,7 @@ class MembershipController extends ChangeNotifier {
     notifyListeners();
     try {
       _state = AsyncState<Membership>.success(
-        await _repository.getMembership(),
+        await _repository.getMembership(forceRefresh: force),
       );
     } catch (error, stackTrace) {
       _state = AsyncState<Membership>.failure(

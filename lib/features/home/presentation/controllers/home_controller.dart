@@ -20,7 +20,9 @@ class HomeController extends ChangeNotifier {
     _state = AsyncState<HomeFeed>.loading(previousData: _state.data);
     notifyListeners();
     try {
-      _state = AsyncState<HomeFeed>.success(await _repository.getHomeFeed());
+      _state = AsyncState<HomeFeed>.success(
+        await _repository.getHomeFeed(forceRefresh: force),
+      );
     } catch (error, stackTrace) {
       _state = AsyncState<HomeFeed>.failure(
         error,

@@ -18,21 +18,19 @@ class ApiOffersRepository implements OffersRepository {
   final Set<String> _claimedOfferIds = <String>{};
 
   @override
-  Future<List<Offer>> getOffers({String? category}) async {
+  Future<List<Offer>> getOffers({
+    String? category,
+    bool forceRefresh = false,
+  }) async {
     final List<Offer> rawOffers = await _cache.getOrLoad<List<Offer>>(
       'offers:all',
-      () async => _readList(
-        await _apiClient.get('/member/offers'),
-      ).map<Offer>(OfferModel.fromJson).toList(growable: false),
+      () async =>
+          _readList(await _apiClient.get('/member/offers'))
+              .map<Offer>(OfferModel.fromJson)
+              .toList(growable: false),
       ttl: const Duration(minutes: 5),
+      force: forceRefresh,
     );
-    try {
-      final List<Offer> claimed = await getClaimedOffers();
-      _claimedOfferIds.addAll(claimed.map((Offer offer) => offer.id));
-    } catch (_) {
-      // Existing claims are supplementary to the main offers catalogue. A
-      // temporary failure must not make every offer disappear.
-    }
     final List<Offer> offers = rawOffers
         .map(
           (Offer offer) => _claimedOfferIds.contains(offer.id)
@@ -67,17 +65,12 @@ class ApiOffersRepository implements OffersRepository {
   }
 
   @override
-  Future<List<Offer>> getClaimedOffers() {
-    return _cache.getOrLoad<List<Offer>>(
-      'offers:claimed',
-      () async => _readList(await _apiClient.get('/member/my-offers'))
-          .map<Offer>(
-            (Map<String, dynamic> json) =>
-                OfferModel.fromJson(json).copyWith(isClaimed: true),
-          )
-          .toList(growable: false),
-      ttl: const Duration(minutes: 2),
-    );
+  Future<List<Offer>> getClaimedOffers({bool forceRefresh = false}) async {
+    final List<Offer> offers = await getOffers(forceRefresh: forceRefresh);
+    return offers
+        .where((Offer offer) => _claimedOfferIds.contains(offer.id))
+        .map((Offer offer) => offer.copyWith(isClaimed: true))
+        .toList(growable: false);
   }
 
   @override
@@ -86,8 +79,7 @@ class ApiOffersRepository implements OffersRepository {
   }
 
   static List<Map<String, dynamic>> _readList(Object? response) {
-    Object? value = unwrapApiData(response);
-    if (value is Map && value['offers'] is List) value = value['offers'];
+    final Object? value = unwrapApiData(response);
     if (value is! List) {
       throw const AppException(
         'The server returned an invalid offers response.',

@@ -19,6 +19,8 @@ Future<bool> showOtpVerificationDialog({
   required String? Function() errorText,
   required String instructions,
   String verifyButtonLabel = 'Verify Email',
+  String dialogTitle = 'Verify Your Email',
+  String backButtonLabel = 'Go Back and Change Email',
 }) async {
   final bool? wasVerified = await showDialog<bool>(
     context: context,
@@ -38,6 +40,8 @@ Future<bool> showOtpVerificationDialog({
         errorText: errorText,
         instructions: instructions,
         verifyButtonLabel: verifyButtonLabel,
+        dialogTitle: dialogTitle,
+        backButtonLabel: backButtonLabel,
       );
     },
   );
@@ -60,6 +64,8 @@ class OtpVerificationDialog extends StatefulWidget {
     required this.errorText,
     required this.instructions,
     required this.verifyButtonLabel,
+    required this.dialogTitle,
+    required this.backButtonLabel,
   });
 
   final Listenable animation;
@@ -74,6 +80,8 @@ class OtpVerificationDialog extends StatefulWidget {
   final String? Function() errorText;
   final String instructions;
   final String verifyButtonLabel;
+  final String dialogTitle;
+  final String backButtonLabel;
 
   @override
   State<OtpVerificationDialog> createState() =>
@@ -204,7 +212,7 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
                       ),
                       const SizedBox(height: AppSpacing.md),
                       Text(
-                        'Verify Your Email',
+                        widget.dialogTitle,
                         textAlign: TextAlign.center,
                         style: AppTextStyles.pageTitle.copyWith(fontSize: 27),
                       ),
@@ -336,7 +344,7 @@ class _OtpVerificationDialogState extends State<OtpVerificationDialog> {
                       TextButton.icon(
                         onPressed: isBusy ? null : _changeEmail,
                         icon: const Icon(Icons.arrow_back, size: 18),
-                        label: const Text('Go Back and Change Email'),
+                        label: Text(widget.backButtonLabel),
                         style: TextButton.styleFrom(
                           foregroundColor: AppColors.textPrimary,
                           textStyle: AppTextStyles.body,

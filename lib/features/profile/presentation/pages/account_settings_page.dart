@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import 'package:pcj_v4/core/errors/app_exception.dart';
 import 'package:pcj_v4/core/theme/app_theme.dart';
+import 'package:pcj_v4/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:pcj_v4/shared/domain/entities/user.dart';
+import 'package:pcj_v4/shared/widgets/app_dialog.dart';
 import 'package:pcj_v4/shared/widgets/app_widgets.dart';
+import 'package:pcj_v4/shared/widgets/otp_verification_dialog.dart';
+import 'package:pcj_v4/shared/widgets/password_reset_dialog.dart';
 
 import '../controllers/profile_controller.dart';
 
@@ -12,10 +15,12 @@ class AccountSettingsPage extends StatelessWidget {
   const AccountSettingsPage({
     super.key,
     required this.controller,
+    required this.authController,
     required this.onAccountDeleted,
   });
 
   final ProfileController controller;
+  final AuthController authController;
   final VoidCallback onAccountDeleted;
 
   @override
@@ -29,6 +34,7 @@ class AccountSettingsPage extends StatelessWidget {
           return AppPageBody(
             topPadding: 36,
             bottomPadding: 144,
+            onRefresh: () => controller.load(force: true),
             child: AsyncStateView<User>(
               state: controller.profile,
               onRetry: () => controller.load(force: true),
@@ -45,7 +51,8 @@ class AccountSettingsPage extends StatelessWidget {
                       user: user,
                       onPhonePressed: () =>
                           _editPhone(context, user.phoneNumber),
-                      onPasswordPressed: () => _passwordHelp(context),
+                      onPasswordPressed: () =>
+                          _changePassword(context, user.email),
                     ),
                     const SizedBox(height: 45),
                     const Text(
@@ -77,93 +84,121 @@ class AccountSettingsPage extends StatelessWidget {
     );
   }
 
-  Future<void> _passwordHelp(BuildContext context) {
-    return showDialog<void>(
-      context: context,
-      builder: (BuildContext context) => AlertDialog(
-        title: const Text('Reset password'),
-        content: const Text(
-          'For security, password changes use the Forgot Password flow on the '
-          'sign-in screen.',
+  Future<void> _changePassword(BuildContext context, String email) async {
+    authController.cancelPasswordReset();
+    final TextEditingController currentPasswordController =
+        TextEditingController();
+
+    try {
+      final bool currentPasswordVerified = await showCurrentPasswordDialog(
+        context: context,
+        animation: authController,
+        passwordController: currentPasswordController,
+        onChanged: authController.onCurrentPasswordChanged,
+        onSubmit: () => authController.verifyCurrentPasswordForChange(
+          email: email,
+          password: currentPasswordController.text,
         ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => context.pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
+        isSubmitting: () => authController.isVerifyingCurrentPassword,
+        errorText: () => authController.passwordResetError,
+      );
+      if (!context.mounted) return;
+      if (!currentPasswordVerified) {
+        authController.cancelPasswordReset();
+        return;
+      }
+
+      final bool codeWasRequested = await showNewPasswordDialog(
+        context: context,
+        animation: authController,
+        passwordController: authController.newPasswordController,
+        confirmationController: authController.confirmNewPasswordController,
+        onChanged: authController.onNewPasswordChanged,
+        onSubmit: () => authController.requestPasswordChangeCode(email),
+        isSubmitting: () => authController.isRequestingPasswordReset,
+        errorText: () => authController.passwordResetError,
+        title: 'Choose New Password',
+        description:
+            'Enter the new password twice. A confirmation code will then be '
+            'sent to your account email before the change is saved.',
+        submitLabel: 'Send Confirmation Code',
+        cancelLabel: 'Cancel',
+      );
+      if (!context.mounted) return;
+      if (!codeWasRequested) {
+        authController.cancelPasswordReset();
+        return;
+      }
+
+      final bool passwordWasChanged = await showOtpVerificationDialog(
+        context: context,
+        animation: authController,
+        email: email,
+        otpController: authController.passwordResetOtpController,
+        onOtpChanged: authController.onPasswordResetOtpChanged,
+        onVerify: authController.verifyAndResetPassword,
+        onResend: authController.resendPasswordResetOtp,
+        onChangeEmail: authController.cancelPasswordReset,
+        isVerifying: () =>
+            authController.isVerifyingPasswordResetOtp ||
+            authController.isResettingPassword,
+        isResending: () => authController.isResendingPasswordResetOtp,
+        errorText: () => authController.passwordResetError,
+        instructions:
+            'Use the most recent password-reset code to confirm your identity.',
+        verifyButtonLabel: 'Confirm Password Change',
+        dialogTitle: 'Confirm Your Identity',
+        backButtonLabel: 'Cancel Password Change',
+      );
+      if (!context.mounted) return;
+      if (!passwordWasChanged) {
+        authController.cancelPasswordReset();
+        return;
+      }
+
+      await showAppMessageDialog(
+        context: context,
+        title: 'Password Changed',
+        message: 'Your password was changed successfully.',
+        buttonLabel: 'Done',
+        icon: Icons.check_circle_outline_rounded,
+        iconColor: AppColors.success,
+      );
+    } finally {
+      currentPasswordController.dispose();
+    }
   }
 
   Future<void> _editPhone(BuildContext context, String current) async {
-    final String? value = await _showValueDialog(
-      context,
+    final String? value = await showAppTextInputDialog(
+      context: context,
       title: 'Phone Number',
       currentValue: current,
+      confirmLabel: 'Save Number',
+      hintText: 'Enter your phone number',
       keyboardType: TextInputType.phone,
     );
     if (value != null) await controller.updatePhoneNumber(value);
   }
 
   Future<void> _deleteAccount(BuildContext context) async {
-    final bool? confirmed = await showDialog<bool>(
+    final bool confirmed = await showAppConfirmationDialog(
       context: context,
-      builder: (BuildContext context) => AlertDialog(
-        title: const Text('Delete account?'),
-        content: const Text(
+      title: 'Delete account?',
+      message:
           'Deleting your account permanently removes your club profile and '
           'cancels your membership. If you change your mind later, you will '
           'need to submit a new membership application and wait for it to be '
           'reviewed again. This action cannot be undone.',
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => context.pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => context.pop(true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Delete Account',
+      cancelLabel: 'Keep Account',
+      icon: Icons.delete_forever_outlined,
+      isDestructive: true,
     );
-    if (confirmed == true && await controller.deleteAccount()) {
+    if (confirmed && await controller.deleteAccount()) {
       onAccountDeleted();
     }
   }
-}
-
-Future<String?> _showValueDialog(
-  BuildContext context, {
-  required String title,
-  required String currentValue,
-  required TextInputType keyboardType,
-}) async {
-  final TextEditingController fieldController = TextEditingController(
-    text: currentValue,
-  );
-  final String? result = await showDialog<String>(
-    context: context,
-    builder: (BuildContext context) => AlertDialog(
-      title: Text(title),
-      content: TextField(
-        controller: fieldController,
-        keyboardType: keyboardType,
-        autofocus: true,
-      ),
-      actions: <Widget>[
-        TextButton(onPressed: () => context.pop(), child: const Text('Cancel')),
-        FilledButton(
-          onPressed: () => context.pop(fieldController.text.trim()),
-          child: const Text('Save'),
-        ),
-      ],
-    ),
-  );
-  fieldController.dispose();
-  return result;
 }
 
 class _CredentialsPanel extends StatelessWidget {

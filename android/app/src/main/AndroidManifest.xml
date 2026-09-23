@@ -6,11 +6,6 @@
         android:allowBackup="false"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
-        <!-- Replace the placeholder in res/values/google_maps_api.xml with a
-             restricted Android Maps SDK key before release. -->
-        <meta-data
-            android:name="com.google.android.geo.API_KEY"
-            android:value="@string/google_maps_key" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

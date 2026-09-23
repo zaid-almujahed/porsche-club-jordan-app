@@ -26,9 +26,6 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<!-- Replace this placeholder locally with an iOS-restricted Maps SDK key. -->
-	<key>GMSApiKey</key>
-	<string>YOUR_IOS_GOOGLE_MAPS_API_KEY</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

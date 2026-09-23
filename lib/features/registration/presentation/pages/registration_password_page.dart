@@ -8,16 +8,19 @@ import 'package:pcj_v4/shared/widgets/app_widgets.dart';
 import '../controllers/registration_controller.dart';
 import '../widgets/form_widgets.dart';
 import '../widgets/password_registration_widgets.dart';
+import '../widgets/registration_cancel_dialog.dart';
 
 class RegistrationPasswordPage extends StatelessWidget {
   const RegistrationPasswordPage({
     super.key,
     required this.controller,
     required this.onSubmitted,
+    required this.onCancel,
   });
 
   final RegistrationController controller;
   final VoidCallback onSubmitted;
+  final Future<void> Function() onCancel;
 
   Future<void> _submit(BuildContext context) async {
     final bool wasSubmitted = await controller.submitApplication();
@@ -37,7 +40,14 @@ class RegistrationPasswordPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.canvas,
-      appBar: const PorscheAppBar(title: 'Membership Application'),
+      appBar: PorscheAppBar(
+        title: 'Membership Application',
+        showClose: true,
+        onClose: () => confirmRegistrationCancellation(
+          context: context,
+          onCancel: onCancel,
+        ),
+      ),
       body: AnimatedBuilder(
         animation: controller,
         builder: (BuildContext context, Widget? child) {
@@ -119,18 +129,14 @@ class RegistrationPasswordPage extends StatelessWidget {
                   const SizedBox(height: AppSpacing.md),
                   Text(
                     controller.passwordFormError!,
-                    style: AppTextStyles.body.copyWith(
-                      color: AppColors.danger,
-                    ),
+                    style: AppTextStyles.body.copyWith(color: AppColors.danger),
                   ),
                 ],
                 if (controller.submissionError != null) ...<Widget>[
                   const SizedBox(height: AppSpacing.md),
                   Text(
                     controller.submissionError!,
-                    style: AppTextStyles.body.copyWith(
-                      color: AppColors.danger,
-                    ),
+                    style: AppTextStyles.body.copyWith(color: AppColors.danger),
                   ),
                 ],
                 const SizedBox(height: AppSpacing.section),
@@ -147,10 +153,7 @@ class RegistrationPasswordPage extends StatelessWidget {
     );
   }
 
-  Widget _buildRequirement({
-    required String label,
-    required bool isMet,
-  }) {
+  Widget _buildRequirement({required String label, required bool isMet}) {
     final Color color = isMet ? AppColors.success : AppColors.textFaint;
 
     return Row(
@@ -162,10 +165,7 @@ class RegistrationPasswordPage extends StatelessWidget {
         ),
         const SizedBox(width: AppSpacing.sm),
         Expanded(
-          child: Text(
-            label,
-            style: AppTextStyles.body.copyWith(color: color),
-          ),
+          child: Text(label, style: AppTextStyles.body.copyWith(color: color)),
         ),
       ],
     );

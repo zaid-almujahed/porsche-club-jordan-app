@@ -19,7 +19,7 @@ class ApiProfileRepository implements ProfileRepository {
   static const String _profileCacheKey = 'member:profile';
 
   @override
-  Future<User> getProfile() async {
+  Future<User> getProfile({bool forceRefresh = false}) async {
     return _cache.getOrLoad<User>(
       _profileCacheKey,
       () async {
@@ -57,6 +57,7 @@ class ApiProfileRepository implements ProfileRepository {
         });
       },
       ttl: const Duration(minutes: 2),
+      force: forceRefresh,
     );
   }
 
@@ -64,7 +65,7 @@ class ApiProfileRepository implements ProfileRepository {
   Future<User> updateProfile(ProfileUpdate update) async {
     await _apiClient.multipart(
       '/member/profile',
-      method: 'POST',
+      method: 'PUT',
       fields: <String, Object?>{
         'name': update.name.trim(),
         'phone': update.phoneNumber.trim(),
@@ -73,11 +74,20 @@ class ApiProfileRepository implements ProfileRepository {
             ? null
             : _date(update.dateOfBirth!),
       },
+      files: update.avatar == null
+          ? const <ApiUpload>[]
+          : <ApiUpload>[
+              ApiUpload(
+                field: 'profile_photo',
+                fileName: update.avatar!.fileName,
+                bytes: update.avatar!.bytes,
+              ),
+            ],
     );
     _cache.remove(_profileCacheKey);
     // The mutation response is not guaranteed to include membership or car
     // data, so rebuild the complete member view from the read endpoints.
-    return getProfile();
+    return getProfile(forceRefresh: true);
   }
 
   @override
@@ -96,7 +106,7 @@ class ApiProfileRepository implements ProfileRepository {
   Future<User> uploadAvatar(AvatarUpload upload) async {
     await _apiClient.multipart(
       '/member/profile',
-      method: 'POST',
+      method: 'PUT',
       files: <ApiUpload>[
         ApiUpload(
           field: 'profile_photo',
@@ -108,7 +118,7 @@ class ApiProfileRepository implements ProfileRepository {
     _cache.remove(_profileCacheKey);
     // The mutation response is not guaranteed to include membership or car
     // data, so rebuild the complete member view from the read endpoints.
-    return getProfile();
+    return getProfile(forceRefresh: true);
   }
 
   @override
@@ -126,8 +136,8 @@ class ApiProfileRepository implements ProfileRepository {
   }
 
   @override
-  Future<List<Vehicle>> getVehicles() async {
-    return (await getProfile()).vehicles;
+  Future<List<Vehicle>> getVehicles({bool forceRefresh = false}) async {
+    return (await getProfile(forceRefresh: forceRefresh)).vehicles;
   }
 
   static String _date(DateTime value) {
@@ -135,5 +145,4 @@ class ApiProfileRepository implements ProfileRepository {
     final String day = value.day.toString().padLeft(2, '0');
     return '${value.year}-$month-$day';
   }
-
 }

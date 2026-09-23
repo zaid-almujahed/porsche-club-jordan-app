@@ -1,3 +1,31 @@
+class EventGalleryItem {
+  const EventGalleryItem({
+    required this.id,
+    required this.type,
+    required this.fileUrl,
+  });
+
+  final String id;
+  final String type;
+  final String fileUrl;
+
+  bool get isImage => type.trim().toLowerCase() == 'image';
+}
+
+class EventSponsor {
+  const EventSponsor({
+    required this.sponsorId,
+    required this.tier,
+    required this.name,
+    required this.logoUrl,
+  });
+
+  final String sponsorId;
+  final String tier;
+  final String name;
+  final String logoUrl;
+}
+
 class Event {
   const Event({
     required this.id,
@@ -14,8 +42,8 @@ class Event {
     required this.registrationFee,
     required this.guestFee,
     this.currency = 'JOD',
-    this.sponsors = const <String>[],
-    this.galleryUrls = const <String>[],
+    this.sponsors = const <EventSponsor>[],
+    this.gallery = const <EventGalleryItem>[],
     this.mapImageUrl,
     this.latitude,
     this.longitude,
@@ -39,8 +67,8 @@ class Event {
   final double registrationFee;
   final double guestFee;
   final String currency;
-  final List<String> sponsors;
-  final List<String> galleryUrls;
+  final List<EventSponsor> sponsors;
+  final List<EventGalleryItem> gallery;
   final String? mapImageUrl;
   final double? latitude;
   final double? longitude;
@@ -49,17 +77,30 @@ class Event {
   final bool isPaid;
   final bool isFeatured;
 
+  List<String> get galleryUrls => gallery
+      .where((EventGalleryItem item) => item.isImage)
+      .map((EventGalleryItem item) => item.fileUrl)
+      .where((String url) => url.trim().isNotEmpty)
+      .toList(growable: false);
+
   /// A missing/zero capacity means the API did not publish a limit. It must
   /// not make every partially populated event look sold out.
-  bool get isAtCapacity =>
-      availableCount != null
+  bool get isAtCapacity => availableCount != null
       ? availableCount! <= 0
       : capacity > 0 && registeredCount >= capacity;
 
-  /// Fees are authoritative even when older API responses omit `is_paid`.
-  bool get isFree => registrationFee <= 0 && guestFee <= 0;
+  /// An explicit free-event flag is authoritative. When older responses omit
+  /// it, the model infers [isPaid] from the published fee fields.
+  bool get isFree => !isPaid || (registrationFee <= 0 && guestFee <= 0);
 
-  Event copyWith({int? weatherCelsius}) {
+  bool hasStartedAt(DateTime moment) => startsAt.isBefore(moment);
+
+  bool hasEndedAt(DateTime moment) => endsAt.isBefore(moment);
+
+  bool isHappeningAt(DateTime moment) =>
+      !startsAt.isAfter(moment) && !endsAt.isBefore(moment);
+
+  Event copyWith({double? latitude, double? longitude, int? weatherCelsius}) {
     return Event(
       id: id,
       title: title,
@@ -76,10 +117,10 @@ class Event {
       guestFee: guestFee,
       currency: currency,
       sponsors: sponsors,
-      galleryUrls: galleryUrls,
+      gallery: gallery,
       mapImageUrl: mapImageUrl,
-      latitude: latitude,
-      longitude: longitude,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
       availableCount: availableCount,
       weatherCelsius: weatherCelsius ?? this.weatherCelsius,
       isPaid: isPaid,

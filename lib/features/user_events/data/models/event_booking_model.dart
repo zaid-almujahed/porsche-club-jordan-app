@@ -11,44 +11,31 @@ class EventTicketModel extends EventTicket {
     super.isPaid,
   });
 
-  factory EventTicketModel.fromJson(Map<String, dynamic> json) {
-    final String qrToken =
-        firstString(json, const <String>[
-          'qr_token',
-          'qr_image_url',
-          'qr_url',
-          'qr_code',
-          'url',
-        ]) ??
-        '';
+  factory EventTicketModel.fromJson(
+    Map<String, dynamic> json, {
+    String fallbackId = '',
+  }) {
     return EventTicketModel(
       id:
-          firstString(json, const <String>[
-            'id',
-            'event_id',
-            'registration_id',
-            'reg_id',
-          ]) ??
-          '',
-      qrImageUrl: qrToken,
-      holderName:
-          firstString(json, const <String>[
-            'holder_name',
-            'member_name',
-            'name',
-          ]) ??
-          'Member',
+          firstString(json, const <String>['event_id']) ??
+          fallbackId,
+      qrImageUrl: _qrToken(json) ?? '',
+      holderName: firstString(json, const <String>['event_name']) ?? 'Member',
       attendanceStatus:
-          firstString(json, const <String>['attendance_status']) ??
-          'Not Checked In',
-      isPaid: _bool(json['is_paid']),
+          firstString(json, const <String>['attendance_status']) ?? '',
+      isPaid: json['is_paid'] == true,
     );
   }
 
-  static bool _bool(Object? value) {
-    if (value is bool) return value;
-    final String normalized = value?.toString().toLowerCase() ?? '';
-    return normalized == 'true' || normalized == '1';
+  static String? _qrToken(Object? value) {
+    if (value is String) {
+      final String token = value.trim();
+      return token.isEmpty ? null : token;
+    }
+    if (value is! Map) return null;
+
+    final Map<String, dynamic> json = Map<String, dynamic>.from(value);
+    return _qrToken(json['qr_token']);
   }
 }
 
@@ -64,47 +51,57 @@ class EventBookingModel extends EventBooking {
   });
 
   factory EventBookingModel.fromJson(
-    Map<String, dynamic> json, {
+    Map<String, dynamic> source, {
     Event? fallbackEvent,
+    int fallbackGuestCount = 0,
+    EventBookingStatus? fallbackStatus,
   }) {
-    final Object? eventValue = json['event'];
-    final Event event = eventValue is Map
-        ? EventModel.fromDetailsJson(Map<String, dynamic>.from(eventValue))
-        : fallbackEvent ?? EventModel.fromSummaryJson(json);
-    final Object? ticketValue = json['ticket'] ?? json['qr'];
-    final bool hasAttendanceState = json['attendance_status'] != null;
-    final bool hasQrToken = json['qr_token'] != null;
+    final String? eventId = firstString(source, const <String>['event_id']);
+    final bool containsMemberEvent = eventId != null && source['title'] != null;
+    final Event event = containsMemberEvent
+        ? EventModel.fromMemberEventJson(source)
+        : fallbackEvent ??
+              EventModel.fromSummaryJson(<String, dynamic>{
+                'id': eventId ?? '',
+              });
+    final bool hasTicketState =
+        source['attendance_status'] != null || source['qr_token'] != null;
 
     return EventBookingModel(
       id:
-          firstString(json, const <String>[
-            'rsvp_id',
-            'booking_id',
-            'registration_id',
-            'id',
-          ]) ??
+          firstString(source, const <String>['rsvp_id']) ??
           event.id,
       event: event,
-      status: _status(json['status'] ?? json['rsvp_status']),
-      guestCount: firstInt(json, const <String>['guest_count', 'guests']) ?? 0,
-      paymentStatus: firstString(json, const <String>['payment_status']),
-      amount: firstDouble(json, const <String>['amount']),
-      ticket: ticketValue is Map
-          ? EventTicketModel.fromJson(Map<String, dynamic>.from(ticketValue))
-          : hasAttendanceState || hasQrToken
-          ? EventTicketModel.fromJson(json)
+      status: _status(
+        source['rsvp_status'] ?? source['status'],
+        fallback: fallbackStatus,
+      ),
+      guestCount:
+          firstInt(source, const <String>['guest_count']) ??
+          fallbackGuestCount,
+      paymentStatus: firstString(source, const <String>['payment_status']),
+      amount: firstDouble(source, const <String>['amount']),
+      ticket: hasTicketState
+          ? EventTicketModel.fromJson(source, fallbackId: event.id)
           : null,
     );
   }
 
-  static EventBookingStatus _status(Object? value) {
-    final String normalized = value?.toString().toLowerCase() ?? '';
-    if (normalized.isEmpty) return EventBookingStatus.confirmed;
-    if (normalized.contains('confirm') || normalized.contains('paid')) {
-      return EventBookingStatus.confirmed;
-    }
-    if (normalized.contains('cancel')) return EventBookingStatus.cancelled;
-    if (normalized.contains('attend')) return EventBookingStatus.attended;
-    return EventBookingStatus.waitlist;
+  static EventBookingStatus _status(
+    Object? value, {
+    EventBookingStatus? fallback,
+  }) {
+    final Object? rawValue = value is Map
+        ? value['value'] ?? value['name'] ?? value['status']
+        : value;
+    final String normalized = rawValue?.toString().trim().toUpperCase() ?? '';
+    return switch (normalized) {
+      '' when fallback != null => fallback,
+      'CONFIRMED' => EventBookingStatus.confirmed,
+      'CANCELED' || 'CANCELLED' => EventBookingStatus.canceled,
+      _ => throw const FormatException(
+        'The server returned an invalid RSVP status.',
+      ),
+    };
   }
 }

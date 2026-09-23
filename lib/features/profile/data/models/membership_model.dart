@@ -7,6 +7,7 @@ class MembershipModel extends Membership {
     required super.memberId,
     required super.memberName,
     required super.status,
+    required super.startDate,
     required super.validUntil,
     required super.qrImageUrl,
     required super.annualFee,
@@ -14,46 +15,19 @@ class MembershipModel extends Membership {
   });
 
   factory MembershipModel.fromJson(
-    Map<String, dynamic> source, {
-    String? qrImageUrl,
+    Map<String, dynamic> json, {
+    required String memberName,
+    String qrToken = '',
   }) {
-    final Object? nested = source['membership'];
-    final Map<String, dynamic> json = nested is Map
-        ? Map<String, dynamic>.from(nested)
-        : source;
-    final DateTime? validUntil = firstDateTime(json, const <String>[
-      'end_date',
-      'valid_until',
-      'expires_at',
-      'membership_valid_until',
-    ]);
-
     return MembershipModel(
-      memberId:
-          firstString(json, const <String>[
-            'member_id',
-            'membership_id',
-            'id',
-          ]) ??
-          '',
-      memberName:
-          firstString(json, const <String>['member_name', 'name']) ?? '',
-      status: _status(json['status'] ?? json['membership_status']),
-      validUntil: validUntil,
-      qrImageUrl:
-          qrImageUrl ??
-          firstString(json, const <String>[
-            'qr_image_url',
-            'qr_url',
-            'qr_code',
-          ]) ??
-          '',
-      annualFee: firstDouble(json, const <String>[
-        'annual_fee',
-        'fee',
-        'amount',
-      ]),
-      currency: firstString(json, const <String>['currency']) ?? 'JOD',
+      memberId: firstString(json, const <String>['member_id']) ?? '',
+      memberName: memberName.trim(),
+      status: _status(json['status']),
+      startDate: firstDateTime(json, const <String>['start_date']),
+      validUntil: firstDateTime(json, const <String>['end_date']),
+      qrImageUrl: qrToken.trim(),
+      annualFee: null,
+      currency: 'JOD',
     );
   }
 

@@ -16,4 +16,15 @@ class MemberNotification {
   final MemberNotificationType type;
   final bool isRead;
   final DateTime sentAt;
+
+  MemberNotification copyWith({bool? isRead}) {
+    return MemberNotification(
+      id: id,
+      title: title,
+      message: message,
+      type: type,
+      isRead: isRead ?? this.isRead,
+      sentAt: sentAt,
+    );
+  }
 }

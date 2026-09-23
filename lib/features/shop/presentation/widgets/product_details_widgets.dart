@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:pcj_v4/core/theme/app_theme.dart';
+import 'package:pcj_v4/core/utils/app_formatters.dart';
 import 'package:pcj_v4/shared/domain/entities/product.dart';
 import 'package:pcj_v4/shared/widgets/app_widgets.dart';
 
@@ -19,13 +20,16 @@ class ColorSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (colors.isEmpty) return const SizedBox.shrink();
+    final String selectedColorName = AppFormatters.initCap(
+      selectedColor?.name ?? '',
+    );
     return Column(
       children: <Widget>[
         Row(
           children: <Widget>[
             const Text('COLOR', style: AppTextStyles.label),
             const Spacer(),
-            Text(selectedColor?.name ?? '', style: AppTextStyles.bodyLarge),
+            Text(selectedColorName, style: AppTextStyles.bodyLarge),
           ],
         ),
         const SizedBox(height: AppSpacing.md),
@@ -38,10 +42,11 @@ class ColorSelector extends StatelessWidget {
             itemBuilder: (BuildContext context, int index) {
               final ProductColorOption option = colors[index];
               final bool selected = option == selectedColor;
+              final String colorName = AppFormatters.initCap(option.name);
               return Semantics(
                 button: true,
                 selected: selected,
-                label: option.name,
+                label: colorName,
                 child: InkWell(
                   onTap: () => onSelected(option),
                   customBorder: const CircleBorder(),
@@ -126,12 +131,14 @@ class QuantitySelector extends StatelessWidget {
     required this.canIncrement,
     required this.onIncrement,
     required this.onDecrement,
+    this.enabled = true,
   });
 
   final int quantity;
   final bool canIncrement;
   final VoidCallback onIncrement;
   final VoidCallback onDecrement;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -140,31 +147,34 @@ class QuantitySelector extends StatelessWidget {
       children: <Widget>[
         const Text('QUANTITY', style: AppTextStyles.label),
         const SizedBox(height: AppSpacing.sm),
-        Container(
-          width: 154,
-          height: 44,
-          decoration: BoxDecoration(
-            border: Border.all(color: AppColors.border),
-            borderRadius: BorderRadius.circular(AppRadii.small),
-          ),
-          child: Row(
-            children: <Widget>[
-              IconButton(
-                onPressed: quantity <= 1 ? null : onDecrement,
-                icon: const Icon(Icons.remove),
-              ),
-              Expanded(
-                child: Text(
-                  '$quantity',
-                  textAlign: TextAlign.center,
-                  style: AppTextStyles.bodyLarge,
+        Opacity(
+          opacity: enabled ? 1 : 0.45,
+          child: Container(
+            width: 154,
+            height: 44,
+            decoration: BoxDecoration(
+              border: Border.all(color: AppColors.border),
+              borderRadius: BorderRadius.circular(AppRadii.small),
+            ),
+            child: Row(
+              children: <Widget>[
+                IconButton(
+                  onPressed: enabled && quantity > 1 ? onDecrement : null,
+                  icon: const Icon(Icons.remove),
                 ),
-              ),
-              IconButton(
-                onPressed: canIncrement ? onIncrement : null,
-                icon: const Icon(Icons.add),
-              ),
-            ],
+                Expanded(
+                  child: Text(
+                    '$quantity',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.bodyLarge,
+                  ),
+                ),
+                IconButton(
+                  onPressed: enabled && canIncrement ? onIncrement : null,
+                  icon: const Icon(Icons.add),
+                ),
+              ],
+            ),
           ),
         ),
       ],

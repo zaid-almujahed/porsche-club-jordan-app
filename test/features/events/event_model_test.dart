@@ -43,5 +43,44 @@ void main() {
 
       expect(event.isAtCapacity, isTrue);
     });
+
+    test('parses nested sponsor and location payloads', () {
+      final EventModel event = EventModel.fromDetailsJson(<String, dynamic>{
+        'id': 4,
+        'start_at': '2026-10-01T08:00:00Z',
+        'location': <String, dynamic>{
+          'name': 'Jordan Motorsport Arena',
+          'coordinates': <String, dynamic>{'lat': 31.9539, 'lng': 35.9106},
+        },
+        'sponsors': <String, dynamic>{
+          'items': <Map<String, dynamic>>[
+            <String, dynamic>{
+              'sponsor': <String, dynamic>{'sponsor_name': 'PCJ Partner'},
+            },
+          ],
+        },
+      });
+
+      expect(event.location, 'Jordan Motorsport Arena');
+      expect(event.latitude, 31.9539);
+      expect(event.longitude, 35.9106);
+      expect(event.sponsors, <String>['PCJ Partner']);
+    });
+
+    test('an event becomes past as soon as its start time passes', () {
+      final EventModel event = EventModel.fromSummaryJson(<String, dynamic>{
+        'id': 'event-past',
+        'start_at': '2026-09-18T09:00:00Z',
+      });
+
+      expect(
+        event.hasStartedAt(DateTime.parse('2026-09-18T09:00:01Z')),
+        isTrue,
+      );
+      expect(
+        event.hasStartedAt(DateTime.parse('2026-09-18T08:59:59Z')),
+        isFalse,
+      );
+    });
   });
 }

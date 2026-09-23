@@ -193,6 +193,7 @@ class MemberEventCard extends StatelessWidget {
     required this.time,
     required this.location,
     required this.isTicketAvailable,
+    required this.isHappeningNow,
     this.onTicketPressed,
     this.onCancelPressed,
     this.isCancelling = false,
@@ -206,6 +207,7 @@ class MemberEventCard extends StatelessWidget {
   final String time;
   final String location;
   final bool isTicketAvailable;
+  final bool isHappeningNow;
   final VoidCallback? onTicketPressed;
   final VoidCallback? onCancelPressed;
   final bool isCancelling;
@@ -213,7 +215,21 @@ class MemberEventCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: MemberEventStyles.cardDecoration,
+      decoration: isHappeningNow
+          ? MemberEventStyles.cardDecoration.copyWith(
+              border: Border.all(
+                color: const Color(0xB37EE69A),
+                width: 1.4,
+              ),
+              boxShadow: const <BoxShadow>[
+                BoxShadow(
+                  color: Color(0x247EE69A),
+                  blurRadius: 22,
+                  spreadRadius: -8,
+                ),
+              ],
+            )
+          : MemberEventStyles.cardDecoration,
       child: Padding(
         padding: const EdgeInsets.all(27),
         child: Column(
@@ -221,11 +237,22 @@ class MemberEventCard extends StatelessWidget {
           children: <Widget>[
             Row(
               children: <Widget>[
-                _StatusChip(label: status, isHighlighted: isTicketAvailable),
+                _StatusChip(
+                  label: status,
+                  isHighlighted: isTicketAvailable,
+                  isHappeningNow: isHappeningNow,
+                ),
                 const SizedBox(width: 13.5),
                 Icon(typeIcon, size: 15, color: AppColors.textFaint),
                 const SizedBox(width: 4.5),
-                Text(type, style: MemberEventStyles.eventType),
+                Expanded(
+                  child: Text(
+                    type,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: MemberEventStyles.eventType,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 13.5),
@@ -301,22 +328,44 @@ class _TicketButton extends StatelessWidget {
 }
 
 class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.label, required this.isHighlighted});
+  const _StatusChip({
+    required this.label,
+    required this.isHighlighted,
+    required this.isHappeningNow,
+  });
 
   final String label;
   final bool isHighlighted;
+  final bool isHappeningNow;
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: isHighlighted ? AppColors.primary : const Color(0xFF181817),
-        border: Border.all(color: const Color(0x4C5E3F3C), width: 1.1),
+        color: isHappeningNow
+            ? const Color(0x2E7EE69A)
+            : isHighlighted
+            ? AppColors.primary
+            : const Color(0xFF181817),
+        border: Border.all(
+          color: isHappeningNow
+              ? AppColors.success
+              : const Color(0x4C5E3F3C),
+          width: 1.1,
+        ),
         borderRadius: BorderRadius.circular(AppRadii.large),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 11.25, vertical: 4.5),
-        child: Text(label, style: MemberEventStyles.status),
+        child: Text(
+          label,
+          style: MemberEventStyles.status.copyWith(
+            color: isHappeningNow
+                ? AppColors.success
+                : AppColors.textSecondary,
+            fontWeight: isHappeningNow ? FontWeight.w700 : FontWeight.w400,
+          ),
+        ),
       ),
     );
   }

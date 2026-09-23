@@ -25,6 +25,7 @@ class MembershipSettingsPage extends StatelessWidget {
         builder: (BuildContext context, Widget? child) => AppPageBody(
           topPadding: 40,
           bottomPadding: 140,
+          onRefresh: () => controller.load(force: true),
           child: AsyncStateView<Membership>(
             state: controller.state,
             onRetry: () => controller.load(force: true),
@@ -212,6 +213,7 @@ class _DigitalMemberCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: <Widget>[
               Expanded(
+                flex: 2,
                 child: _CardValue(
                   label: 'MEMBER NAME',
                   value: membership.memberName,
@@ -259,15 +261,30 @@ class _CardValue extends StatelessWidget {
       children: <Widget>[
         Text(label, style: _MembershipStyles.cardLabel),
         const SizedBox(height: 3.5),
-        Text(
-          value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: alignEnd ? TextAlign.right : TextAlign.left,
-          style: compact
-              ? _MembershipStyles.cardId
-              : _MembershipStyles.cardName,
-        ),
+        if (compact)
+          SizedBox(
+            width: double.infinity,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: alignEnd
+                  ? Alignment.centerRight
+                  : Alignment.centerLeft,
+              child: Text(
+                value,
+                maxLines: 1,
+                textAlign: alignEnd ? TextAlign.right : TextAlign.left,
+                style: _MembershipStyles.cardId,
+              ),
+            ),
+          )
+        else
+          Text(
+            value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: alignEnd ? TextAlign.right : TextAlign.left,
+            style: _MembershipStyles.cardName,
+          ),
       ],
     );
   }

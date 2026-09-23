@@ -19,31 +19,26 @@ class ProductModel extends Product {
     super.variants,
   });
 
-  factory ProductModel.fromJson(Map<String, dynamic> source) {
-    final Object? nested = source['item'] ?? source['product'];
-    final Map<String, dynamic> json = nested is Map
-        ? <String, dynamic>{
-            ...Map<String, dynamic>.from(nested),
-            if (source['variant'] != null)
-              'selected_variant': source['variant'],
-          }
-        : source;
-    final List<ProductVariant> variants = _variants(json);
-    final List<String> images = _images(json, variants);
-    final double price =
-        firstDouble(json, const <String>[
-          'price',
-          'base_price',
-          'unit_price',
-        ]) ??
-        _lowestPrice(variants) ??
-        0;
-    final int stock =
-        firstInt(json, const <String>['stock', 'quantity', 'stock_quantity']) ??
-        variants.fold<int>(
-          0,
-          (int total, ProductVariant variant) => total + variant.stock,
-        );
+  factory ProductModel.fromJson(Map<String, dynamic> json) {
+    final List<_ProductImage> orderedImages = _orderedImages(json['images']);
+    final String? productImageUrl =
+        firstString(json, const <String>['image']) ??
+        (orderedImages.isEmpty ? null : orderedImages.first.url);
+    final List<ProductVariant> variants = _variants(
+      json,
+      orderedImages: orderedImages,
+      fallbackImageUrl: productImageUrl,
+    );
+    final List<String> images = _images(
+      productImageUrl,
+      orderedImages,
+      variants,
+    );
+    final double price = firstDouble(json, const <String>['price']) ?? 0;
+    final int stock = variants.fold<int>(
+      0,
+      (int total, ProductVariant variant) => total + variant.stock,
+    );
 
     final Set<String> colorNames = variants
         .map((ProductVariant variant) => variant.colorName)
@@ -57,12 +52,9 @@ class ProductModel extends Product {
         .toSet();
 
     return ProductModel(
-      id:
-          firstString(json, const <String>['id', 'item_id', 'product_id']) ??
-          '',
-      name: firstString(json, const <String>['name', 'title']) ?? '',
-      description:
-          firstString(json, const <String>['description', 'details']) ?? '',
+      id: firstString(json, const <String>['id']) ?? '',
+      name: firstString(json, const <String>['name']) ?? '',
+      description: firstString(json, const <String>['description']) ?? '',
       category:
           _category(json['category']) ??
           firstString(json, const <String>['category_name']) ??
@@ -78,91 +70,89 @@ class ProductModel extends Product {
           )
           .toList(growable: false),
       sizes: sizes.toList(growable: false),
-      badge: firstString(json, const <String>['badge', 'label']),
+      badge: firstString(json, const <String>['badge']),
       variants: variants,
     );
   }
 
-  static List<ProductVariant> _variants(Map<String, dynamic> json) {
+  static List<ProductVariant> _variants(
+    Map<String, dynamic> json, {
+    required List<_ProductImage> orderedImages,
+    required String? fallbackImageUrl,
+  }) {
     final Object? raw = json['variants'];
-    final List<Object?> values = raw is List
-        ? raw.cast<Object?>()
-        : json['selected_variant'] is Map
-        ? <Object?>[json['selected_variant']]
-        : const <Object?>[];
-    return values
-        .whereType<Map>()
-        .map<ProductVariant>((Map value) {
-          final Map<String, dynamic> variant = Map<String, dynamic>.from(value);
-          final Object? colorValue = variant['color'];
-          final String? color = colorValue is Map
-              ? firstString(
-                  Map<String, dynamic>.from(colorValue),
-                  const <String>['name', 'value'],
-                )
-              : firstString(variant, const <String>['color', 'color_name']);
-          return ProductVariant(
-            id:
-                firstString(variant, const <String>[
-                  'id',
-                  'variant_id',
-                  'item_variant_id',
-                ]) ??
-                '',
-            stock:
-                firstInt(variant, const <String>[
-                  'stock',
-                  'quantity',
-                  'stock_quantity',
-                ]) ??
-                0,
-            price: firstDouble(variant, const <String>['price', 'unit_price']),
-            colorName: color,
-            size: firstString(variant, const <String>['size', 'size_name']),
-            imageUrl: firstString(variant, const <String>[
-              'image_url',
-              'image',
-              'photo',
-            ]),
+    final List<Map<String, dynamic>> values = raw is List
+        ? raw
+              .whereType<Map>()
+              .map((Map value) => Map<String, dynamic>.from(value))
+              .toList(growable: false)
+        : const <Map<String, dynamic>>[];
+    return List<ProductVariant>.generate(values.length, (int index) {
+          final Map<String, dynamic> variant = values[index];
+          final int displayOrder = index + 1;
+          final String? mappedImage = _imageAtOrder(
+            orderedImages,
+            displayOrder,
           );
-        })
-        .toList(growable: false);
+          return ProductVariant(
+            id: firstString(variant, const <String>['id']) ?? '',
+            stock: firstInt(variant, const <String>['stock']) ?? 0,
+            colorName: firstString(variant, const <String>['color']),
+            size: firstString(variant, const <String>['size']),
+            imageUrl: mappedImage ?? fallbackImageUrl,
+          );
+        }, growable: false);
   }
 
   static List<String> _images(
-    Map<String, dynamic> json,
+    String? productImageUrl,
+    List<_ProductImage> orderedImages,
     List<ProductVariant> variants,
   ) {
-    final List<String> values = <String>[];
-    final String? cover = firstString(json, const <String>[
-      'cover_image',
-      'image_url',
-      'image',
-      'photo',
-    ]);
-    if (cover != null) values.add(cover);
-    final Object? rawImages =
-        json['images'] ?? json['image_urls'] ?? json['gallery'];
-    if (rawImages is List) {
-      for (final Object? raw in rawImages) {
-        final String? url = raw is String
-            ? raw
-            : raw is Map
-            ? firstString(Map<String, dynamic>.from(raw), const <String>[
-                'image_url',
-                'url',
-                'path',
-              ])
-            : null;
-        if (url != null) values.add(url);
-      }
-    }
-    values.addAll(
-      variants
+    final Set<String> images = <String>{
+      if (productImageUrl != null) productImageUrl,
+      ...orderedImages.map((_ProductImage image) => image.url),
+      ...variants
           .map((ProductVariant variant) => variant.imageUrl)
           .whereType<String>(),
+    };
+    return images.toList(growable: false);
+  }
+
+  static List<_ProductImage> _orderedImages(Object? raw) {
+    if (raw is! List) return const <_ProductImage>[];
+    final List<_ProductImage> images = raw
+        .whereType<Map>()
+        .map<_ProductImage?>((Map value) {
+          final Map<String, dynamic> json = Map<String, dynamic>.from(value);
+          final String? url = firstString(json, const <String>['image_url']);
+          final int? displayOrder = firstInt(
+            json,
+            const <String>['display_order'],
+          );
+          if (url == null || displayOrder == null) return null;
+          return _ProductImage(url: url, displayOrder: displayOrder);
+        })
+        .whereType<_ProductImage>()
+        .toList();
+    images.sort(
+      (_ProductImage left, _ProductImage right) =>
+          left.displayOrder.compareTo(right.displayOrder),
     );
-    return values.toSet().toList(growable: false);
+    return List<_ProductImage>.unmodifiable(images);
+  }
+
+  static String? _imageAtOrder(
+    List<_ProductImage> images,
+    int displayOrder,
+  ) {
+    for (final _ProductImage image in images) {
+      if (image.displayOrder == displayOrder) return image.url;
+    }
+    for (final _ProductImage image in images) {
+      if (image.displayOrder == 1) return image.url;
+    }
+    return images.isEmpty ? null : images.first.url;
   }
 
   static String? _category(Object? value) {
@@ -174,16 +164,6 @@ class ProductModel extends Product {
       ]);
     }
     return null;
-  }
-
-  static double? _lowestPrice(List<ProductVariant> variants) {
-    final List<double> prices = variants
-        .map((ProductVariant variant) => variant.price)
-        .whereType<double>()
-        .toList();
-    if (prices.isEmpty) return null;
-    prices.sort();
-    return prices.first;
   }
 
   static int _colorValue(String value) {
@@ -211,4 +191,11 @@ class ProductModel extends Product {
     if (normalized.contains('pink')) return 0xFFD7859B;
     return 0xFF050505;
   }
+}
+
+class _ProductImage {
+  const _ProductImage({required this.url, required this.displayOrder});
+
+  final String url;
+  final int displayOrder;
 }

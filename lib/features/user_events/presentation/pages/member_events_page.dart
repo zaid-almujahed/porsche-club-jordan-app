@@ -7,6 +7,7 @@ import 'package:pcj_v4/core/theme/app_theme.dart';
 import 'package:pcj_v4/core/utils/app_formatters.dart';
 import 'package:pcj_v4/shared/domain/entities/event.dart';
 import 'package:pcj_v4/shared/domain/entities/event_booking.dart';
+import 'package:pcj_v4/shared/widgets/app_dialog.dart';
 import 'package:pcj_v4/shared/widgets/app_widgets.dart';
 
 import '../controllers/user_events_controller.dart';
@@ -17,33 +18,17 @@ class MemberEventsPage extends StatelessWidget {
 
   final UserEventsController controller;
 
-  Future<void> _cancel(
-    BuildContext context,
-    EventBooking booking,
-  ) async {
-    final bool confirmed =
-        await showDialog<bool>(
-          context: context,
-          builder: (BuildContext dialogContext) => AlertDialog(
-            backgroundColor: AppColors.panelDark,
-            surfaceTintColor: AppColors.panelDark,
-            title: const Text('Cancel registration?'),
-            content: Text(
-              'Your registration for ${booking.event.title} will be cancelled.',
-            ),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: const Text('Keep Registration'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: const Text('Cancel RSVP'),
-              ),
-            ],
-          ),
-        ) ??
-        false;
+  Future<void> _cancel(BuildContext context, EventBooking booking) async {
+    final bool confirmed = await showAppConfirmationDialog(
+      context: context,
+      title: 'Cancel registration?',
+      message:
+          'Your registration for ${booking.event.title} will be cancelled.',
+      confirmLabel: 'Cancel RSVP',
+      cancelLabel: 'Keep Registration',
+      icon: Icons.event_busy_outlined,
+      isDestructive: true,
+    );
     if (!confirmed || !context.mounted) return;
     final bool cancelled = await controller.cancelRegistration(booking);
     if (!cancelled || !context.mounted) return;
@@ -57,9 +42,15 @@ class MemberEventsPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.canvas,
       appBar: PorscheAppBar(
-          title: 'My Events',
-          showBack: true,
-          onBack: ()=> context.pop(),
+        title: 'My Events',
+        showBack: true,
+        onBack: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go(AppRoutes.profile);
+          }
+        },
       ),
       body: AnimatedBuilder(
         animation: controller,
@@ -67,6 +58,7 @@ class MemberEventsPage extends StatelessWidget {
           return AppPageBody(
             topPadding: 40,
             bottomPadding: 50,
+            onRefresh: () => controller.load(force: true),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
@@ -82,9 +74,7 @@ class MemberEventsPage extends StatelessWidget {
                 if (controller.actionError != null) ...<Widget>[
                   Text(
                     readableError(controller.actionError!),
-                    style: AppTextStyles.body.copyWith(
-                      color: AppColors.danger,
-                    ),
+                    style: AppTextStyles.body.copyWith(color: AppColors.danger),
                   ),
                   const SizedBox(height: AppSpacing.md),
                 ],
@@ -92,7 +82,9 @@ class MemberEventsPage extends StatelessWidget {
                   state: controller.bookings,
                   onRetry: () => controller.load(force: true),
                   isEmpty: (List<EventBooking> bookings) => bookings.isEmpty,
-                  emptyMessage: 'No event registrations are available.',
+                  emptyMessage: controller.showUpcoming
+                      ? 'No upcoming event registrations.'
+                      : 'No past event registrations.',
                   builder: (BuildContext context, List<EventBooking> bookings) {
                     return Column(
                       children: <Widget>[
@@ -106,7 +98,11 @@ class MemberEventsPage extends StatelessWidget {
                             isCancelling: controller.isCancelling(
                               bookings[index].event.id,
                             ),
-                            onCancel: controller.showUpcoming
+                            onCancel:
+                                controller.showUpcoming &&
+                                    !bookings[index].event.hasEndedAt(
+                                      DateTime.now(),
+                                    )
                                 ? () => _cancel(context, bookings[index])
                                 : null,
                           ),
@@ -140,12 +136,16 @@ class _BookingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Event event = booking.event;
+    final DateTime now = DateTime.now();
+    final bool eventHasEnded = event.hasEndedAt(now);
+    final bool isHappeningNow = event.isHappeningAt(now);
     final bool canOpenTicket =
-        booking.status == EventBookingStatus.attended ||
-        (booking.status == EventBookingStatus.confirmed &&
-            booking.isPaymentComplete);
+        !eventHasEnded &&
+        booking.status == EventBookingStatus.confirmed;
     return MemberEventCard(
-      status: booking.status.name.toUpperCase(),
+      status: isHappeningNow
+          ? 'HAPPENING NOW'
+          : booking.status.name.toUpperCase(),
       type: event.category.toUpperCase(),
       typeIcon: Icons.location_on_outlined,
       title: event.title,
@@ -153,6 +153,7 @@ class _BookingCard extends StatelessWidget {
       time: AppFormatters.timeRange(event.startsAt, event.endsAt),
       location: event.location,
       isTicketAvailable: canOpenTicket,
+      isHappeningNow: isHappeningNow,
       onTicketPressed: canOpenTicket
           ? () => context.push(
               AppRoutes.ticketLocation(booking.id),

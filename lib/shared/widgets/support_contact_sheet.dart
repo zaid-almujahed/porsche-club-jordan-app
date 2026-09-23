@@ -26,7 +26,13 @@ Future<void> showSupportContactSheet({
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
-    backgroundColor: Colors.transparent,
+    backgroundColor: AppColors.panelDark,
+    clipBehavior: Clip.antiAlias,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(AppRadii.large),
+      ),
+    ),
     builder: (_) => _SupportContactSheet(
       senderEmail: email,
       initialTopic: initialTopic,

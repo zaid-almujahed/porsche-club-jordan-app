@@ -3,7 +3,6 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:pcj_v4/core/theme/app_theme.dart';
 import 'package:pcj_v4/core/utils/app_formatters.dart';
 import 'package:pcj_v4/shared/domain/entities/event_booking.dart';
-import 'package:pcj_v4/shared/widgets/app_widgets.dart';
 
 abstract final class VirtualTicketStyles {
   static const LinearGradient panelGradient = LinearGradient(
@@ -121,26 +120,61 @@ class TicketCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!ticket.canDisplayQr) {
+      final bool wasUsed = ticket.hasBeenUsed;
       return Container(
         color: const Color(0xFF181817),
         padding: const EdgeInsets.all(36),
         child: Column(
           children: <Widget>[
             const Icon(
-              Icons.verified_outlined,
-              color: AppColors.success,
+              Icons.qr_code_2_rounded,
+              color: AppColors.warning,
               size: 52,
             ),
             const SizedBox(height: AppSpacing.md),
-            const Text(
-              'ATTENDANCE RECORDED',
+            Text(
+              wasUsed ? 'QR CODE ALREADY USED' : 'QR CODE UNAVAILABLE',
               textAlign: TextAlign.center,
               style: VirtualTicketStyles.scanLabel,
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'This ticket has already been checked in and its QR code can no '
-              'longer be generated.',
+              wasUsed
+                  ? 'This QR code cannot be generated because this ticket has '
+                        'already been checked in.'
+                  : 'The QR code cannot be displayed because the server did '
+                        'not confirm that this ticket is awaiting check-in.',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.body.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (!ticket.isPaid) {
+      return Container(
+        color: const Color(0xFF181817),
+        padding: const EdgeInsets.all(36),
+        child: Column(
+          children: <Widget>[
+            const Icon(
+              Icons.lock_clock_outlined,
+              color: AppColors.warning,
+              size: 52,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            const Text(
+              'PAYMENT PENDING',
+              textAlign: TextAlign.center,
+              style: VirtualTicketStyles.scanLabel,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'The QR code will be available after the event payment is '
+              'confirmed.',
               textAlign: TextAlign.center,
               style: AppTextStyles.body.copyWith(
                 color: AppColors.textSecondary,

@@ -18,6 +18,7 @@ import 'package:pcj_v4/features/offers/domain/repositories/offers_repository.dar
 import 'package:pcj_v4/features/offers/presentation/controllers/offers_controller.dart';
 import 'package:pcj_v4/features/notifications/data/repositories/api_notifications_repository.dart';
 import 'package:pcj_v4/features/notifications/domain/repositories/notifications_repository.dart';
+import 'package:pcj_v4/features/notifications/presentation/controllers/notifications_controller.dart';
 import 'package:pcj_v4/features/profile/data/repositories/api_membership_repository.dart';
 import 'package:pcj_v4/features/profile/data/repositories/api_profile_repository.dart';
 import 'package:pcj_v4/features/profile/domain/repositories/membership_repository.dart';
@@ -60,6 +61,7 @@ class AppDependencies {
     required this.shopController,
     required this.checkoutController,
     required this.offersController,
+    required this.notificationsController,
     required this.profileController,
     required this.membershipController,
     required this.userEventsController,
@@ -138,6 +140,9 @@ class AppDependencies {
       shopController: ShopController(repository: shopRepository),
       checkoutController: CheckoutController(repository: shopRepository),
       offersController: OffersController(repository: offersRepository),
+      notificationsController: NotificationsController(
+        repository: notificationsRepository,
+      ),
       profileController: ProfileController(
         repository: profileRepository,
         imagePickerService: imagePickerService,
@@ -181,6 +186,7 @@ class AppDependencies {
   final ShopController shopController;
   final CheckoutController checkoutController;
   final OffersController offersController;
+  final NotificationsController notificationsController;
   final ProfileController profileController;
   final MembershipController membershipController;
   final UserEventsController userEventsController;
@@ -203,10 +209,12 @@ class AppDependencies {
       shopController.reset();
       checkoutController.reset();
       offersController.reset();
+      notificationsController.reset();
       profileController.reset();
       membershipController.reset();
       userEventsController.reset();
       userOrdersController.reset();
+      registrationController.reset();
       membershipPaymentController.reset();
     }
   }
@@ -218,6 +226,7 @@ class AppDependencies {
     shopController.dispose();
     checkoutController.dispose();
     offersController.dispose();
+    notificationsController.dispose();
     profileController.dispose();
     membershipController.dispose();
     userEventsController.dispose();

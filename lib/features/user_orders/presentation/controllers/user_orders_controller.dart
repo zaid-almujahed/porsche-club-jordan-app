@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import 'package:pcj_v4/core/errors/app_exception.dart';
 import 'package:pcj_v4/core/state/async_state.dart';
 import 'package:pcj_v4/shared/domain/entities/order.dart';
 
@@ -27,6 +28,23 @@ class UserOrdersController extends ChangeNotifier {
     _showActive = active;
     notifyListeners();
     await _fetch();
+  }
+
+  Future<Order> getOrderDetails(String orderId) {
+    return _repository.getOrder(orderId);
+  }
+
+  Future<OrderCancellationResult> cancelOrder(Order order) async {
+    if (!order.canCancel) {
+      throw const AppException(
+        'Only pending orders paid with cash can be cancelled.',
+      );
+    }
+    final OrderCancellationResult result = await _repository.cancelOrder(
+      order.id,
+    );
+    await _fetch();
+    return result;
   }
 
   Future<void> _fetch() async {

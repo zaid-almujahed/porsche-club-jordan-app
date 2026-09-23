@@ -8,22 +8,32 @@ import 'package:pcj_v4/shared/widgets/app_widgets.dart';
 import '../controllers/registration_controller.dart';
 import '../widgets/form_widgets.dart';
 import '../widgets/vehicle_registration_widgets.dart';
+import '../widgets/registration_cancel_dialog.dart';
 
 class RegistrationVehiclePage extends StatelessWidget {
   const RegistrationVehiclePage({
     super.key,
     required this.controller,
+    required this.onCancel,
     this.vehicleImagePath = 'assets/images/registration_vehicle_car.png',
   });
 
   final RegistrationController controller;
+  final Future<void> Function() onCancel;
   final String vehicleImagePath;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.canvas,
-      appBar: const PorscheAppBar(title: 'Membership Application'),
+      appBar: PorscheAppBar(
+        title: 'Membership Application',
+        showClose: true,
+        onClose: () => confirmRegistrationCancellation(
+          context: context,
+          onCancel: onCancel,
+        ),
+      ),
       body: AnimatedBuilder(
         animation: controller,
         builder: (BuildContext context, Widget? child) {

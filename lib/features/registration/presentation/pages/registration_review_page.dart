@@ -9,20 +9,30 @@ import '../widgets/form_widgets.dart';
 
 import '../controllers/registration_controller.dart';
 import '../widgets/review_page_widgets.dart';
+import '../widgets/registration_cancel_dialog.dart';
 
 class RegistrationReviewPage extends StatelessWidget {
   const RegistrationReviewPage({
     super.key,
     required this.controller,
+    required this.onCancel,
   });
 
   final RegistrationController controller;
+  final Future<void> Function() onCancel;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.canvas,
-      appBar: PorscheAppBar(title: 'Membership Application'),
+      appBar: PorscheAppBar(
+        title: 'Membership Application',
+        showClose: true,
+        onClose: () => confirmRegistrationCancellation(
+          context: context,
+          onCancel: onCancel,
+        ),
+      ),
       body: AnimatedBuilder(
         animation: controller,
         builder: (BuildContext context, Widget? child) {

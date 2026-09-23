@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 import 'package:pcj_v4/core/state/async_state.dart';
 import 'package:pcj_v4/shared/domain/entities/membership.dart';
+import 'package:pcj_v4/shared/domain/entities/user.dart';
 
 import 'package:pcj_v4/features/profile/domain/repositories/membership_repository.dart';
-import 'package:pcj_v4/shared/domain/entities/user.dart';
 
 class MembershipPaymentController extends ChangeNotifier {
   MembershipPaymentController({required MembershipRepository repository})
@@ -34,7 +34,7 @@ class MembershipPaymentController extends ChangeNotifier {
 
     try {
       _state = AsyncState<Membership>.success(
-        await _repository.getMembership(),
+        await _repository.getMembership(forceRefresh: force),
       );
     } catch (error, stackTrace) {
       _state = AsyncState<Membership>.failure(error, stackTrace);
@@ -85,10 +85,10 @@ class MembershipPaymentController extends ChangeNotifier {
       if (membership.status != MembershipStatus.active) {
         _paymentNotice = code.isEmpty
             ? 'The payment request was started, but the backend has not '
-                'confirmed activation. Your access will remain locked until '
-                'payment confirmation is received.'
+                  'confirmed activation. Your access will remain locked until '
+                  'payment confirmation is received.'
             : 'The code was submitted, but the backend has not confirmed '
-                'membership activation yet.';
+                  'membership activation yet.';
       }
       return membership;
     } catch (error) {

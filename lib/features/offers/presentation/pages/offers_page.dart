@@ -1,5 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
+import 'package:pcj_v4/core/routing/app_router.dart';
 import 'package:pcj_v4/core/theme/app_theme.dart';
 import 'package:pcj_v4/core/errors/app_exception.dart';
 import 'package:pcj_v4/shared/domain/entities/offer.dart';
@@ -9,18 +12,25 @@ import '../controllers/offers_controller.dart';
 import '../widgets/offer_widgets.dart';
 
 class PartnerOffersPage extends StatelessWidget {
-  const PartnerOffersPage({super.key, required this.controller});
+  const PartnerOffersPage({
+    super.key,
+    required this.controller,
+    this.unreadNotificationCount,
+  });
 
   final OffersController controller;
+  final ValueListenable<int>? unreadNotificationCount;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
       backgroundColor: AppColors.canvas,
-      appBar: const PorscheAppBar(title: 'Offers'),
-      bottomNavigationBar: const AppBottomNavigation(
-        selected: AppSection.offers,
+      appBar: PorscheAppBar(
+        title: 'Offers',
+        showNotifications: true,
+        unreadNotificationCount: unreadNotificationCount,
+        onNotificationsPressed: () => context.push(AppRoutes.notifications),
       ),
       body: AnimatedBuilder(
         animation: controller,
@@ -32,6 +42,7 @@ class PartnerOffersPage extends StatelessWidget {
           return AppPageBody(
             bottomPadding:
                 AppLayout.navigationBarHeight + AppSpacing.pageBottom,
+            onRefresh: () => controller.load(force: true),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
@@ -58,9 +69,7 @@ class PartnerOffersPage extends StatelessWidget {
                 if (controller.actionError != null) ...<Widget>[
                   Text(
                     readableError(controller.actionError!),
-                    style: AppTextStyles.body.copyWith(
-                      color: AppColors.danger,
-                    ),
+                    style: AppTextStyles.body.copyWith(color: AppColors.danger),
                   ),
                   const SizedBox(height: AppSpacing.md),
                 ],

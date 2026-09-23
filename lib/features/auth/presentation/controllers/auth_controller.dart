@@ -37,6 +37,7 @@ class AuthController extends ChangeNotifier {
   bool _isVerifyingPasswordResetOtp = false;
   bool _isResendingPasswordResetOtp = false;
   bool _isResettingPassword = false;
+  bool _isVerifyingCurrentPassword = false;
   // A startup restore may still be running when a member begins a new login.
   // Only the newest session operation is allowed to publish router state.
   int _sessionGeneration = 0;
@@ -56,6 +57,7 @@ class AuthController extends ChangeNotifier {
   bool get isVerifyingPasswordResetOtp => _isVerifyingPasswordResetOtp;
   bool get isResendingPasswordResetOtp => _isResendingPasswordResetOtp;
   bool get isResettingPassword => _isResettingPassword;
+  bool get isVerifyingCurrentPassword => _isVerifyingCurrentPassword;
   bool get newPasswordHasMinimumLength =>
       PasswordRules.hasMinimumLength(newPasswordController.text);
   bool get newPasswordHasNumber =>
@@ -236,6 +238,97 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<bool> verifyCurrentPasswordForChange({
+    required String email,
+    required String password,
+  }) async {
+    if (_isVerifyingCurrentPassword) return false;
+    if (password.isEmpty) {
+      _passwordResetError = 'Enter your current password.';
+      notifyListeners();
+      return false;
+    }
+
+    _isVerifyingCurrentPassword = true;
+    _passwordResetError = null;
+    notifyListeners();
+    try {
+      // The available API has no dedicated credential-check endpoint. Login
+      // validates the supplied password without changing the active session,
+      // because its OTP is deliberately not verified or stored here.
+      await _repository.requestSignInOtp(
+        email: email.trim(),
+        password: password,
+      );
+      return true;
+    } catch (error) {
+      _passwordResetError = readableError(
+        error,
+        fallback: 'The current password is incorrect.',
+      );
+      return false;
+    } finally {
+      _isVerifyingCurrentPassword = false;
+      notifyListeners();
+    }
+  }
+
+  void onCurrentPasswordChanged(String _) {
+    _passwordResetError = null;
+    notifyListeners();
+  }
+
+  Future<bool> prepareNewPasswordForChange() async {
+    final String password = newPasswordController.text;
+    final String confirmation = confirmNewPasswordController.text;
+    final String? policyError = PasswordRules.validationMessage(password);
+    if (policyError != null) {
+      _passwordResetError = policyError;
+      notifyListeners();
+      return false;
+    }
+    if (password != confirmation) {
+      _passwordResetError = 'The passwords do not match.';
+      notifyListeners();
+      return false;
+    }
+    _passwordResetError = null;
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> requestPasswordChangeCode(String email) async {
+    if (_isRequestingPasswordReset) return false;
+    if (!await prepareNewPasswordForChange()) return false;
+
+    final String normalizedEmail = email.trim();
+    if (normalizedEmail.isEmpty) {
+      _passwordResetError = 'No email address is available for this account.';
+      notifyListeners();
+      return false;
+    }
+
+    _isRequestingPasswordReset = true;
+    _passwordResetError = null;
+    notifyListeners();
+    try {
+      await _repository.requestPasswordReset(normalizedEmail);
+      _passwordResetEmail = normalizedEmail;
+      _passwordResetToken = null;
+      passwordResetOtpController.clear();
+      return true;
+    } catch (error) {
+      _passwordResetError = readableError(
+        error,
+        fallback: 'The confirmation code could not be sent.',
+      );
+      return false;
+    } finally {
+      _isRequestingPasswordReset = false;
+      notifyListeners();
+    }
+  }
+
   Future<bool> requestPasswordReset() async {
     final String identifier = identifierController.text.trim();
     if (identifier.isEmpty) {
@@ -319,6 +412,7 @@ class AuthController extends ChangeNotifier {
     }
 
     _isResendingPasswordResetOtp = true;
+    _passwordResetToken = null;
     _passwordResetError = null;
     notifyListeners();
     try {
@@ -389,6 +483,14 @@ class AuthController extends ChangeNotifier {
       _isResettingPassword = false;
       notifyListeners();
     }
+  }
+
+  Future<bool> verifyAndResetPassword() async {
+    if (_passwordResetToken == null || _passwordResetToken!.isEmpty) {
+      final bool wasVerified = await verifyPasswordResetOtp();
+      if (!wasVerified) return false;
+    }
+    return resetPassword();
   }
 
   void cancelPasswordReset() {
