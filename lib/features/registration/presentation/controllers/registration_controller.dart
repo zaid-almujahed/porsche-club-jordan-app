@@ -54,6 +54,9 @@ class RegistrationController extends ChangeNotifier {
   String? _submissionError;
   String? _otpError;
   User? _submittedUser;
+  bool _isEditingSubmittedApplication = false;
+  bool _profilePhotoChangedSinceSubmission = false;
+  bool _licensePhotoChangedSinceSubmission = false;
 
   XFile? get profilePhoto => _profilePhoto;
   XFile? get licensePhoto => _licensePhoto;
@@ -73,6 +76,9 @@ class RegistrationController extends ChangeNotifier {
   String? get submissionError => _submissionError;
   String? get otpError => _otpError;
   User? get submittedUser => _submittedUser;
+  bool get canEditSubmittedApplication =>
+      _submittedUser?.id.trim().isNotEmpty ?? false;
+  bool get isEditingSubmittedApplication => _isEditingSubmittedApplication;
 
   bool get hasMinimumPasswordLength =>
       PasswordRules.hasMinimumLength(passwordController.text);
@@ -126,6 +132,9 @@ class RegistrationController extends ChangeNotifier {
       }
 
       _profilePhoto = image;
+      if (_submittedUser != null) {
+        _profilePhotoChangedSinceSubmission = true;
+      }
       _personalFormError = null;
     } catch (_) {
       _profilePhotoError = 'The image could not be selected. Please try again.';
@@ -151,6 +160,9 @@ class RegistrationController extends ChangeNotifier {
       }
 
       _licensePhoto = image;
+      if (_submittedUser != null) {
+        _licensePhotoChangedSinceSubmission = true;
+      }
       _vehicleFormError = null;
     } catch (_) {
       _licensePhotoError = 'The image could not be selected. Please try again.';
@@ -314,6 +326,9 @@ class RegistrationController extends ChangeNotifier {
       _submittedUser = await _registrationRepository.submitApplication(
         submission,
       );
+      _isEditingSubmittedApplication = false;
+      _profilePhotoChangedSinceSubmission = false;
+      _licensePhotoChangedSinceSubmission = false;
       passwordController.clear();
       confirmPasswordController.clear();
       otpController.clear();
@@ -322,6 +337,70 @@ class RegistrationController extends ChangeNotifier {
       _submissionError = readableError(
         error,
         fallback: 'The application could not be submitted. Please try again.',
+      );
+      return false;
+    } finally {
+      _isSubmitting = false;
+      notifyListeners();
+    }
+  }
+
+  void beginEditingSubmittedApplication() {
+    if (!canEditSubmittedApplication) return;
+    _isEditingSubmittedApplication = true;
+    _submissionError = null;
+    notifyListeners();
+  }
+
+  Future<bool> updateSubmittedApplication() async {
+    if (_isSubmitting || !canEditSubmittedApplication) return false;
+
+    final bool personalInformationIsValid = validatePersonalInformation();
+    final bool vehicleInformationIsValid = validateVehicleInformation();
+    if (!personalInformationIsValid || !vehicleInformationIsValid) {
+      _submissionError =
+          'Please return to the previous steps and complete every field.';
+      notifyListeners();
+      return false;
+    }
+    if (!validateReview()) return false;
+
+    _isSubmitting = true;
+    _submissionError = null;
+    notifyListeners();
+    try {
+      final XFile profilePhoto = _profilePhoto!;
+      final XFile licensePhoto = _licensePhoto!;
+      final RegistrationSubmission submission = RegistrationSubmission(
+        fullName: fullNameController.text.trim(),
+        email: emailController.text.trim(),
+        phoneNumber: _normalizePhone(phoneController.text),
+        city: cityController.text.trim(),
+        password: '',
+        dateOfBirth: _dateOfBirth!,
+        vehicleModel: vehicleModelController.text.trim(),
+        vehicleYear: int.parse(vehicleYearController.text.trim()),
+        vin: vinController.text.trim(),
+        licensePlate: licensePlateController.text.trim(),
+        profilePhotoName: profilePhoto.name,
+        profilePhotoBytes: await profilePhoto.readAsBytes(),
+        licensePhotoName: licensePhoto.name,
+        licensePhotoBytes: await licensePhoto.readAsBytes(),
+      );
+      _submittedUser = await _registrationRepository.updateApplication(
+        userId: _submittedUser!.id,
+        submission: submission,
+        includeProfilePhoto: _profilePhotoChangedSinceSubmission,
+        includeLicensePhoto: _licensePhotoChangedSinceSubmission,
+      );
+      _isEditingSubmittedApplication = false;
+      _profilePhotoChangedSinceSubmission = false;
+      _licensePhotoChangedSinceSubmission = false;
+      return true;
+    } catch (error) {
+      _submissionError = readableError(
+        error,
+        fallback: 'The application changes could not be saved.',
       );
       return false;
     } finally {
@@ -441,6 +520,9 @@ class RegistrationController extends ChangeNotifier {
     _submissionError = null;
     _otpError = null;
     _submittedUser = null;
+    _isEditingSubmittedApplication = false;
+    _profilePhotoChangedSinceSubmission = false;
+    _licensePhotoChangedSinceSubmission = false;
     notifyListeners();
   }
 

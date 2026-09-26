@@ -57,35 +57,75 @@ Future<String?> showAppTextInputDialog({
   String cancelLabel = 'Cancel',
   String? hintText,
   TextInputType? keyboardType,
-}) async {
-  final TextEditingController fieldController = TextEditingController(
-    text: currentValue,
-  );
-  final String? result = await showDialog<String>(
+}) {
+  return showDialog<String>(
     context: context,
-    builder: (BuildContext dialogContext) => AppDialog(
-      icon: Icons.edit_outlined,
+    builder: (BuildContext dialogContext) => _AppTextInputDialog(
       title: title,
-      content: TextField(
-        controller: fieldController,
-        keyboardType: keyboardType,
-        autofocus: true,
-        style: AppTextStyles.input,
-        decoration: InputDecoration(hintText: hintText),
-        onSubmitted: (String value) {
-          Navigator.of(dialogContext).pop(value.trim());
-        },
-      ),
-      primaryLabel: confirmLabel,
-      secondaryLabel: cancelLabel,
-      onPrimaryPressed: () {
-        Navigator.of(dialogContext).pop(fieldController.text.trim());
-      },
-      onSecondaryPressed: () => Navigator.of(dialogContext).pop(),
+      currentValue: currentValue,
+      confirmLabel: confirmLabel,
+      cancelLabel: cancelLabel,
+      hintText: hintText,
+      keyboardType: keyboardType,
     ),
   );
-  fieldController.dispose();
-  return result;
+}
+
+class _AppTextInputDialog extends StatefulWidget {
+  const _AppTextInputDialog({
+    required this.title,
+    required this.currentValue,
+    required this.confirmLabel,
+    required this.cancelLabel,
+    this.hintText,
+    this.keyboardType,
+  });
+
+  final String title;
+  final String currentValue;
+  final String confirmLabel;
+  final String cancelLabel;
+  final String? hintText;
+  final TextInputType? keyboardType;
+
+  @override
+  State<_AppTextInputDialog> createState() => _AppTextInputDialogState();
+}
+
+class _AppTextInputDialogState extends State<_AppTextInputDialog> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.currentValue,
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    Navigator.of(context).pop(_controller.text.trim());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppDialog(
+      icon: Icons.edit_outlined,
+      title: widget.title,
+      content: TextField(
+        controller: _controller,
+        keyboardType: widget.keyboardType,
+        autofocus: true,
+        style: AppTextStyles.input,
+        decoration: InputDecoration(hintText: widget.hintText),
+        onSubmitted: (_) => _submit(),
+      ),
+      primaryLabel: widget.confirmLabel,
+      secondaryLabel: widget.cancelLabel,
+      onPrimaryPressed: _submit,
+      onSecondaryPressed: () => Navigator.of(context).pop(),
+    );
+  }
 }
 
 class AppDialog extends StatelessWidget {

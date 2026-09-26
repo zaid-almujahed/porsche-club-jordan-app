@@ -91,6 +91,21 @@ class ApiProfileRepository implements ProfileRepository {
   }
 
   @override
+  Future<User> updatePhoneNumber(String phoneNumber) async {
+    final String value = phoneNumber.trim();
+    if (value.isEmpty) {
+      throw const AppException('Phone number cannot be empty.');
+    }
+    await _apiClient.multipart(
+      '/member/profile',
+      method: 'PUT',
+      fields: <String, Object?>{'phone': value},
+    );
+    _cache.remove(_profileCacheKey);
+    return getProfile(forceRefresh: true);
+  }
+
+  @override
   Future<void> updateEmail(String email) async {
     if (email.trim().isEmpty) {
       throw const AppException('Email address cannot be empty.');

@@ -6,6 +6,7 @@ import 'package:pcj_v4/core/routing/app_router.dart';
 import 'package:pcj_v4/core/theme/app_theme.dart';
 import 'package:pcj_v4/core/errors/app_exception.dart';
 import 'package:pcj_v4/shared/domain/entities/offer.dart';
+import 'package:pcj_v4/shared/widgets/app_search_field.dart';
 import 'package:pcj_v4/shared/widgets/app_widgets.dart';
 
 import '../controllers/offers_controller.dart';
@@ -55,6 +56,13 @@ class PartnerOffersPage extends StatelessWidget {
                   'Exclusive privileges for Porsche Club Jordan members.',
                   style: AppTextStyles.bodyLarge,
                 ),
+                const SizedBox(height: AppSpacing.xl),
+                AppSearchField(
+                  controller: controller.searchController,
+                  hintText: 'Search offers and partners',
+                  onChanged: controller.search,
+                  onClear: controller.clearSearch,
+                ),
                 if (controller.categories.isNotEmpty) ...<Widget>[
                   const SizedBox(height: 54),
                   OfferCategories(
@@ -77,7 +85,9 @@ class PartnerOffersPage extends StatelessWidget {
                   state: controller.offers,
                   onRetry: () => controller.load(force: true),
                   isEmpty: (List<Offer> offers) => offers.isEmpty,
-                  emptyMessage: 'No offers are currently available.',
+                  emptyMessage: controller.hasSearchQuery
+                      ? 'No offers match your search.'
+                      : 'No offers are currently available.',
                   builder: (BuildContext context, List<Offer> offers) {
                     return Column(
                       children: <Widget>[

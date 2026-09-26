@@ -37,6 +37,24 @@ class NotificationsPage extends StatelessWidget {
                   '${controller.unreadCount == 1 ? '' : 's'}',
                   style: AppTextStyles.bodyLarge,
                 ),
+                if (controller.unreadCount > 0) ...<Widget>[
+                  const SizedBox(height: AppSpacing.md),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: SizedBox(
+                      width: 210,
+                      child: SecondaryActionButton(
+                        label: controller.isMarkingAllRead
+                            ? 'Marking All...'
+                            : 'Mark All as Read',
+                        onPressed: controller.isMarkingAllRead
+                            ? null
+                            : controller.markAllAsRead,
+                        height: 46,
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: AppSpacing.xl),
                 _NotificationTabs(
                   showAll: controller.showAll,
@@ -72,7 +90,7 @@ class NotificationsPage extends StatelessWidget {
                                 isMarkingRead: controller.isMarkingRead(
                                   values[index].id,
                                 ),
-                                onMarkRead: () =>
+                                onTap: () =>
                                     controller.markAsRead(values[index]),
                               ),
                               if (index != values.length - 1)
@@ -166,42 +184,92 @@ class _NotificationCard extends StatelessWidget {
   const _NotificationCard({
     required this.notification,
     required this.isMarkingRead,
-    required this.onMarkRead,
+    required this.onTap,
   });
 
   final MemberNotification notification;
   final bool isMarkingRead;
-  final VoidCallback onMarkRead;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return GradientPanel(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Semantics(
+      button: !notification.isRead,
+      label: notification.isRead
+          ? null
+          : 'Mark ${notification.title} as read',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadii.medium),
+        onTap: notification.isRead || isMarkingRead ? null : onTap,
+        child: GradientPanel(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: _color.withValues(alpha: 0.14),
-                  shape: BoxShape.circle,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(10),
-                  child: Icon(_icon, color: _color, size: 23),
-                ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: _color.withValues(alpha: 0.14),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: Icon(_icon, color: _color, size: 23),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          notification.title,
+                          style: AppTextStyles.sectionTitle,
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          AppFormatters.dateAndTime(notification.sentAt),
+                          style: AppTextStyles.label.copyWith(
+                            color: AppColors.textFaint,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (isMarkingRead)
+                    const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.primaryBright,
+                      ),
+                    )
+                  else if (notification.isRead)
+                    const StatusBadge(
+                      label: 'READ',
+                      color: AppColors.textFaint,
+                    ),
+                ],
               ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(height: AppSpacing.md),
+              Text(notification.message, style: AppTextStyles.bodyLarge),
+              if (!notification.isRead && !isMarkingRead) ...<Widget>[
+                const SizedBox(height: AppSpacing.md),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: <Widget>[
-                    Text(notification.title, style: AppTextStyles.sectionTitle),
-                    const SizedBox(height: AppSpacing.xs),
+                    const Icon(
+                      Icons.touch_app_outlined,
+                      size: 16,
+                      color: AppColors.textFaint,
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
                     Text(
-                      AppFormatters.dateAndTime(notification.sentAt),
+                      'Tap to mark as read',
                       style: AppTextStyles.label.copyWith(
                         color: AppColors.textFaint,
                         fontSize: 10,
@@ -209,22 +277,10 @@ class _NotificationCard extends StatelessWidget {
                     ),
                   ],
                 ),
-              ),
-              if (notification.isRead)
-                const StatusBadge(label: 'READ', color: AppColors.textFaint),
+              ],
             ],
           ),
-          const SizedBox(height: AppSpacing.md),
-          Text(notification.message, style: AppTextStyles.bodyLarge),
-          if (!notification.isRead) ...<Widget>[
-            const SizedBox(height: AppSpacing.lg),
-            PrimaryActionButton(
-              label: isMarkingRead ? 'Marking as Read...' : 'Mark as Read',
-              onPressed: isMarkingRead ? null : onMarkRead,
-              height: 48,
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }

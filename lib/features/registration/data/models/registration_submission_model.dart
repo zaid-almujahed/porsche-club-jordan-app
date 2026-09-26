@@ -72,6 +72,20 @@ class RegistrationSubmissionModel {
     };
   }
 
+  Map<String, String> toApplicationFields() {
+    return <String, String>{
+      'name': fullName,
+      'phone': phoneNumber,
+      'email': email,
+      'city': city,
+      'date_of_birth': _formatDate(dateOfBirth),
+      'car_vin': vehicleVin,
+      'car_model': vehicleModel,
+      'car_year': vehicleYear.toString(),
+      'license_plate': licensePlate,
+    };
+  }
+
   static String _formatDate(DateTime value) {
     final String day = value.day.toString().padLeft(2, '0');
     final String month = value.month.toString().padLeft(2, '0');

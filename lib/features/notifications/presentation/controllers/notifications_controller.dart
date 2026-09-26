@@ -15,18 +15,21 @@ class NotificationsController extends ChangeNotifier
   List<MemberNotification> _allNotifications = const <MemberNotification>[];
   bool _showAll = false;
   final Set<String> _markingReadIds = <String>{};
+  bool _isMarkingAllRead = false;
   Object? _actionError;
   int _requestId = 0;
 
   AsyncState<List<MemberNotification>> get state => _state;
   bool get showAll => _showAll;
+  bool get isMarkingAllRead => _isMarkingAllRead;
   Object? get actionError => _actionError;
   int get unreadCount => _allNotifications
       .where((MemberNotification notification) => !notification.isRead)
       .length;
   @override
   int get value => unreadCount;
-  bool isMarkingRead(String id) => _markingReadIds.contains(id);
+  bool isMarkingRead(String id) =>
+      _isMarkingAllRead || _markingReadIds.contains(id);
 
   Future<void> load({bool force = false}) async {
     if (!force && (_state.isLoading || _state.hasData)) return;
@@ -72,7 +75,9 @@ class NotificationsController extends ChangeNotifier
   }
 
   Future<void> markAsRead(MemberNotification notification) async {
-    if (notification.isRead || _markingReadIds.contains(notification.id)) {
+    if (_isMarkingAllRead ||
+        notification.isRead ||
+        _markingReadIds.contains(notification.id)) {
       return;
     }
     _markingReadIds.add(notification.id);
@@ -96,6 +101,42 @@ class NotificationsController extends ChangeNotifier
     }
   }
 
+  Future<void> markAllAsRead() async {
+    if (_isMarkingAllRead) return;
+    final List<String> unreadIds = _allNotifications
+        .where((MemberNotification value) => !value.isRead)
+        .map((MemberNotification value) => value.id)
+        .toList(growable: false);
+    if (unreadIds.isEmpty) return;
+
+    _isMarkingAllRead = true;
+    _actionError = null;
+    notifyListeners();
+
+    final Set<String> completedIds = <String>{};
+    try {
+      for (final String id in unreadIds) {
+        await _repository.markAsRead(id);
+        completedIds.add(id);
+      }
+    } catch (error) {
+      _actionError = error;
+    } finally {
+      if (completedIds.isNotEmpty) {
+        _allNotifications = _allNotifications
+            .map(
+              (MemberNotification value) => completedIds.contains(value.id)
+                  ? value.copyWith(isRead: true)
+                  : value,
+            )
+            .toList(growable: false);
+        _applyFilter();
+      }
+      _isMarkingAllRead = false;
+      notifyListeners();
+    }
+  }
+
   void _applyFilter() {
     final List<MemberNotification> visible = _showAll
         ? _allNotifications
@@ -113,6 +154,7 @@ class NotificationsController extends ChangeNotifier
     _allNotifications = const <MemberNotification>[];
     _showAll = false;
     _markingReadIds.clear();
+    _isMarkingAllRead = false;
     _actionError = null;
     notifyListeners();
   }

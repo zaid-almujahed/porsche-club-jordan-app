@@ -82,100 +82,97 @@ class OfferCard extends StatelessWidget {
       child: InkWell(
         onTap: isClaiming ? null : onTap,
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          AspectRatio(
-            aspectRatio: 2.15,
-            child: Stack(
-              fit: StackFit.expand,
-              children: <Widget>[
-                AppAssetImage(path: offer.imageUrl),
-                Positioned(
-                  top: 18,
-                  right: 16,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: AppColors.appBar,
-                      border: Border.all(color: AppColors.border),
-                      borderRadius: BorderRadius.circular(AppRadii.pill),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 7,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            AspectRatio(
+              aspectRatio: 2.15,
+              child: Stack(
+                fit: StackFit.expand,
+                children: <Widget>[
+                  AppAssetImage(path: offer.imageUrl),
+                  Positioned(
+                    top: 18,
+                    right: 16,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: AppColors.appBar,
+                        border: Border.all(color: AppColors.border),
+                        borderRadius: BorderRadius.circular(AppRadii.pill),
                       ),
-                      child: Row(
-                        children: <Widget>[
-                          const Icon(
-                            Icons.sell,
-                            size: 14,
-                            color: AppColors.textMuted,
-                          ),
-                          const SizedBox(width: AppSpacing.xs),
-                          Text(
-                            isClaiming ? 'CLAIMING...' : offer.badgeLabel,
-                            style: AppTextStyles.label,
-                          ),
-                        ],
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 7,
+                        ),
+                        child: Row(
+                          children: <Widget>[
+                            const Icon(
+                              Icons.sell,
+                              size: 14,
+                              color: AppColors.textMuted,
+                            ),
+                            const SizedBox(width: AppSpacing.xs),
+                            Text(
+                              isClaiming ? 'CLAIMING...' : offer.badgeLabel,
+                              style: AppTextStyles.label,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 24, 18, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  offer.displayPartnerName,
-                  style: AppTextStyles.sectionTitle,
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                if (offer.title.trim().isNotEmpty &&
-                    offer.title.trim().toLowerCase() !=
-                        offer.displayPartnerName.toLowerCase()) ...<Widget>[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 24, 18, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
                   Text(
                     offer.title,
-                    style: AppTextStyles.bodyLarge.copyWith(
-                      color: AppColors.textPrimary,
-                    ),
+                    style: AppTextStyles.sectionTitle,
                   ),
                   const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    offer.partnerName,
+                    style: AppTextStyles.bodyLarge.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(offer.description, style: AppTextStyles.body),
+                  const SizedBox(height: AppSpacing.lg),
+                  const Divider(),
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(
+                          offer.location.trim().isNotEmpty
+                              ? offer.location
+                              : offer.expiryDate == null
+                              ? 'MEMBER EXCLUSIVE'
+                              : 'VALID UNTIL '
+                                    '${AppFormatters.date(offer.expiryDate!)}',
+                          style: AppTextStyles.label,
+                        ),
+                      ),
+                      Text(
+                        offer.isClaimed ? 'CLAIMED' : 'TAP TO CLAIM',
+                        style: AppTextStyles.label.copyWith(
+                          color: offer.isClaimed
+                              ? AppColors.textFaint
+                              : AppColors.primaryBright,
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
-                Text(offer.description, style: AppTextStyles.body),
-                const SizedBox(height: AppSpacing.lg),
-                const Divider(),
-                const SizedBox(height: AppSpacing.sm),
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: Text(
-                        offer.location.trim().isNotEmpty
-                            ? offer.location
-                            : offer.expiryDate == null
-                            ? 'MEMBER EXCLUSIVE'
-                            : 'VALID UNTIL '
-                                  '${AppFormatters.date(offer.expiryDate!)}',
-                        style: AppTextStyles.label,
-                      ),
-                    ),
-                    Text(
-                      offer.isClaimed ? 'CLAIMED' : 'TAP TO CLAIM',
-                      style: AppTextStyles.label.copyWith(
-                        color: offer.isClaimed
-                            ? AppColors.textFaint
-                            : AppColors.primaryBright,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
-          ),
-        ],
+          ],
         ),
       ),
     );

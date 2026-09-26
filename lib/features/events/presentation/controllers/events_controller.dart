@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
 import 'package:pcj_v4/core/state/async_state.dart';
 import 'package:pcj_v4/shared/domain/entities/event.dart';
@@ -10,6 +10,7 @@ class EventsController extends ChangeNotifier {
     : _repository = repository;
 
   final EventsRepository _repository;
+  final TextEditingController searchController = TextEditingController();
   AsyncState<List<Event>> _events = const AsyncState<List<Event>>.initial();
   List<Event> _allEvents = const <Event>[];
   static const String upcomingCategory = 'Upcoming Events';
@@ -17,12 +18,14 @@ class EventsController extends ChangeNotifier {
 
   List<String> _categories = const <String>[upcomingCategory, pastCategory];
   String _selectedCategory = upcomingCategory;
+  String _searchQuery = '';
   int _requestId = 0;
 
   AsyncState<List<Event>> get events => _events;
   List<String> get categories => _categories;
   String get selectedCategory => _selectedCategory;
   String get sectionTitle => _selectedCategory;
+  bool get hasSearchQuery => _searchQuery.isNotEmpty;
 
   Future<void> load({bool force = false}) async {
     if (!force && (_events.isLoading || _events.hasData)) return;
@@ -34,6 +37,20 @@ class EventsController extends ChangeNotifier {
     _selectedCategory = category;
     if (_events.hasData) _applyFilter();
     notifyListeners();
+  }
+
+  void search(String value) {
+    final String query = value.trim().toLowerCase();
+    if (_searchQuery == query) return;
+    _searchQuery = query;
+    if (_events.hasData) _applyFilter();
+    notifyListeners();
+  }
+
+  void clearSearch() {
+    if (_searchQuery.isEmpty && searchController.text.isEmpty) return;
+    searchController.clear();
+    search('');
   }
 
   Future<void> _fetch({required bool forceRefresh}) async {
@@ -66,7 +83,13 @@ class EventsController extends ChangeNotifier {
         _allEvents
             .where((Event event) {
               final bool hasEnded = event.hasEndedAt(now);
-              return showPast ? hasEnded : !hasEnded;
+              final bool isInSelectedPeriod = showPast ? hasEnded : !hasEnded;
+              if (!isInSelectedPeriod) return false;
+              if (_searchQuery.isEmpty) return true;
+              return event.title.toLowerCase().contains(_searchQuery) ||
+                  event.description.toLowerCase().contains(_searchQuery) ||
+                  event.location.toLowerCase().contains(_searchQuery) ||
+                  event.category.toLowerCase().contains(_searchQuery);
             })
             .toList(growable: false)
           ..sort((Event left, Event right) {
@@ -85,6 +108,14 @@ class EventsController extends ChangeNotifier {
     _allEvents = const <Event>[];
     _categories = const <String>[upcomingCategory, pastCategory];
     _selectedCategory = upcomingCategory;
+    _searchQuery = '';
+    searchController.clear();
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
   }
 }

@@ -31,6 +31,8 @@ abstract interface class ProfileRepository {
 
   Future<User> updateProfile(ProfileUpdate update);
 
+  Future<User> updatePhoneNumber(String phoneNumber);
+
   /// Reserved for the future backend operation that allows an applicant or
   /// member to change the account email. It is currently unsupported.
   Future<void> updateEmail(String email);

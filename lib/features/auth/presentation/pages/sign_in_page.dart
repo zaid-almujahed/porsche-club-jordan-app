@@ -4,6 +4,8 @@ import 'package:pcj_v4/core/routing/app_router.dart';
 import 'package:pcj_v4/core/errors/app_exception.dart';
 
 import 'package:pcj_v4/core/theme/app_theme.dart';
+import 'package:pcj_v4/shared/domain/entities/user.dart';
+import 'package:pcj_v4/shared/widgets/app_dialog.dart';
 import 'package:pcj_v4/shared/widgets/app_widgets.dart';
 import 'package:pcj_v4/shared/widgets/otp_verification_dialog.dart';
 import 'package:pcj_v4/shared/widgets/password_reset_dialog.dart';
@@ -40,6 +42,22 @@ class SignInPage extends StatelessWidget {
       verifyButtonLabel: 'Verify and Sign In',
     );
     if (!context.mounted || !wasVerified) return;
+
+    final User? user = controller.pendingSignInUser;
+    if (user?.applicationStatus == ApplicationStatus.approved &&
+        user?.membershipStatus != MembershipStatus.active) {
+      await showAppMessageDialog(
+        context: context,
+        title: 'Membership Renewal Required',
+        message:
+            'Your Porsche Club Jordan membership is not active. Please renew '
+            'your subscription to continue using member features.',
+        buttonLabel: 'Continue to Payment',
+        icon: Icons.workspace_premium_outlined,
+        iconColor: AppColors.warning,
+      );
+      if (!context.mounted) return;
+    }
 
     // Publishing the completed session wakes go_router's refreshListenable.
     // Its redirect is the single authority that selects home, application

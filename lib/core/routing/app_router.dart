@@ -91,6 +91,20 @@ abstract final class AppRoutes {
   }
 }
 
+GoRoute _flowRoute({
+  required String path,
+  required Widget Function(BuildContext context, GoRouterState state) builder,
+}) {
+  return GoRoute(
+    path: path,
+    pageBuilder: (BuildContext context, GoRouterState state) =>
+        NoTransitionPage<void>(
+          key: state.pageKey,
+          child: builder(context, state),
+        ),
+  );
+}
+
 GoRouter createAppRouter(AppDependencies dependencies) {
   return GoRouter(
     initialLocation: AppRoutes.welcome,
@@ -134,19 +148,22 @@ GoRouter createAppRouter(AppDependencies dependencies) {
       return null;
     },
     routes: <RouteBase>[
-      GoRoute(path: AppRoutes.welcome, builder: (_, _) => const WelcomePage()),
-      GoRoute(
+      _flowRoute(
+        path: AppRoutes.welcome,
+        builder: (_, _) => const WelcomePage(),
+      ),
+      _flowRoute(
         path: AppRoutes.signIn,
         builder: (_, _) => SignInPage(controller: dependencies.authController),
       ),
-      GoRoute(
+      _flowRoute(
         path: AppRoutes.registerPersonal,
         builder: (BuildContext context, _) => RegistrationPersonalPage(
           controller: dependencies.registrationController,
           onCancel: () => _cancelRegistration(context, dependencies),
         ),
       ),
-      GoRoute(
+      _flowRoute(
         path: AppRoutes.registerVehicle,
         builder: (BuildContext context, GoRouterState state) {
           final controller = dependencies.registrationController;
@@ -156,35 +173,42 @@ GoRouter createAppRouter(AppDependencies dependencies) {
           );
         },
       ),
-      GoRoute(
+      _flowRoute(
         path: AppRoutes.registerReview,
         builder: (BuildContext context, _) => RegistrationReviewPage(
           controller: dependencies.registrationController,
           onCancel: () => _cancelRegistration(context, dependencies),
+          onEdited: () => context.go(
+            AppRoutes.applicationStatus,
+            extra: dependencies.registrationController.submittedUser,
+          ),
         ),
       ),
-      GoRoute(
+      _flowRoute(
         path: AppRoutes.registerPassword,
         builder: (BuildContext context, GoRouterState state) =>
             RegistrationPasswordPage(
               controller: dependencies.registrationController,
               onCancel: () => _cancelRegistration(context, dependencies),
               onSubmitted: () {
-                // Registration verification does not authenticate the member.
-                // They sign in normally; pending/rejected responses are then
-                // routed to the application status page by AuthController.
-                dependencies.registrationController.reset();
-                context.go(AppRoutes.signIn);
+                context.go(
+                  AppRoutes.applicationStatus,
+                  extra: dependencies.registrationController.submittedUser,
+                );
               },
             ),
       ),
-      GoRoute(
+      _flowRoute(
         path: AppRoutes.applicationStatus,
         builder: (BuildContext context, GoRouterState state) {
           final User? user = state.extra is User
               ? state.extra! as User
               : dependencies.authController.currentUser;
           if (user == null) return const _MissingRouteDataPage();
+          final bool canEditDuringRegistrationSession =
+              dependencies.authController.currentUser == null &&
+              state.extra is User &&
+              dependencies.registrationController.canEditSubmittedApplication;
           return ApplicationStatusPage(
             user: user,
             onContactSupport: () {
@@ -195,6 +219,13 @@ GoRouter createAppRouter(AppDependencies dependencies) {
             },
             onContinue: () => context.go(AppRoutes.membershipPayment),
             onEditProfile: () => context.go(AppRoutes.registerPersonal),
+            onEditApplication: canEditDuringRegistrationSession
+                ? () {
+                    dependencies.registrationController
+                        .beginEditingSubmittedApplication();
+                    context.go(AppRoutes.registerPersonal);
+                  }
+                : null,
             onLogOut: () async {
               try {
                 await dependencies.signOut();
@@ -205,7 +236,7 @@ GoRouter createAppRouter(AppDependencies dependencies) {
           );
         },
       ),
-      GoRoute(
+      _flowRoute(
         path: AppRoutes.membershipPayment,
         builder: (BuildContext context, GoRouterState state) {
           final controller = dependencies.membershipPaymentController;
@@ -214,7 +245,7 @@ GoRouter createAppRouter(AppDependencies dependencies) {
             controller: controller,
             onClose: () async {
               await dependencies.signOut();
-              if (context.mounted) context.go(AppRoutes.signIn);
+              if (context.mounted) context.go(AppRoutes.welcome);
             },
             onActivated: (_) async {
               dependencies.membershipController.load(force: true);
@@ -349,7 +380,7 @@ GoRouter createAppRouter(AppDependencies dependencies) {
           ),
         ],
       ),
-      GoRoute(
+      _flowRoute(
         path: AppRoutes.eventDetails,
         builder: (_, GoRouterState state) {
           final String id = state.pathParameters['eventId']!;
@@ -366,7 +397,7 @@ GoRouter createAppRouter(AppDependencies dependencies) {
           );
         },
       ),
-      GoRoute(
+      _flowRoute(
         path: AppRoutes.eventRegistration,
         builder: (BuildContext context, GoRouterState state) {
           final String id = state.pathParameters['eventId']!;
@@ -393,7 +424,7 @@ GoRouter createAppRouter(AppDependencies dependencies) {
           );
         },
       ),
-      GoRoute(
+      _flowRoute(
         path: AppRoutes.productDetails,
         builder: (BuildContext context, GoRouterState state) {
           final String id = state.pathParameters['productId']!;
@@ -418,7 +449,7 @@ GoRouter createAppRouter(AppDependencies dependencies) {
           );
         },
       ),
-      GoRoute(
+      _flowRoute(
         path: AppRoutes.checkout,
         builder: (BuildContext context, GoRouterState state) {
           if (state.extra is Cart) {
@@ -435,7 +466,7 @@ GoRouter createAppRouter(AppDependencies dependencies) {
           );
         },
       ),
-      GoRoute(
+      _flowRoute(
         path: AppRoutes.notifications,
         builder: (_, _) {
           dependencies.notificationsController.load();
@@ -444,7 +475,7 @@ GoRouter createAppRouter(AppDependencies dependencies) {
           );
         },
       ),
-      GoRoute(
+      _flowRoute(
         path: AppRoutes.profileEdit,
         builder: (_, _) {
           dependencies.profileController.load();
@@ -453,14 +484,14 @@ GoRouter createAppRouter(AppDependencies dependencies) {
           );
         },
       ),
-      GoRoute(
+      _flowRoute(
         path: AppRoutes.userOrders,
         builder: (_, _) {
           dependencies.userOrdersController.load();
           return OrdersPage(controller: dependencies.userOrdersController);
         },
       ),
-      GoRoute(
+      _flowRoute(
         path: AppRoutes.userEvents,
         builder: (_, _) {
           dependencies.userEventsController.load();
@@ -469,7 +500,7 @@ GoRouter createAppRouter(AppDependencies dependencies) {
           );
         },
       ),
-      GoRoute(
+      _flowRoute(
         path: AppRoutes.membershipSettings,
         builder: (_, _) {
           dependencies.membershipController.load();
@@ -478,7 +509,7 @@ GoRouter createAppRouter(AppDependencies dependencies) {
           );
         },
       ),
-      GoRoute(
+      _flowRoute(
         path: AppRoutes.accountSettings,
         builder: (BuildContext context, GoRouterState state) {
           dependencies.profileController.load();
@@ -495,7 +526,7 @@ GoRouter createAppRouter(AppDependencies dependencies) {
           );
         },
       ),
-      GoRoute(
+      _flowRoute(
         path: AppRoutes.ticket,
         builder: (_, GoRouterState state) {
           final String id = state.pathParameters['bookingId']!;

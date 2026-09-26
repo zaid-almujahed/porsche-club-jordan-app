@@ -4,7 +4,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 abstract interface class TokenStore {
   Future<String?> read();
 
-  Future<void> write(String token);
+  Future<String?> readRefreshToken();
+
+  Future<void> write(String token, {String? refreshToken});
 
   Future<void> clear();
 }
@@ -14,10 +16,13 @@ class SecureTokenStore implements TokenStore {
     : _storage = storage ?? const FlutterSecureStorage();
 
   static const String _tokenKey = 'pcj_access_token';
+  static const String _refreshTokenKey = 'pcj_refresh_token';
 
   final FlutterSecureStorage _storage;
   String? _cachedToken;
+  String? _cachedRefreshToken;
   bool _hasLoadedToken = false;
+  bool _hasLoadedRefreshToken = false;
 
   @override
   Future<String?> read() async {
@@ -28,17 +33,38 @@ class SecureTokenStore implements TokenStore {
   }
 
   @override
-  Future<void> write(String token) async {
+  Future<String?> readRefreshToken() async {
+    if (_hasLoadedRefreshToken) return _cachedRefreshToken;
+    _cachedRefreshToken = await _storage.read(key: _refreshTokenKey);
+    _hasLoadedRefreshToken = true;
+    return _cachedRefreshToken;
+  }
+
+  @override
+  Future<void> write(String token, {String? refreshToken}) async {
     final String cleanToken = token.trim();
+    final String? cleanRefreshToken = refreshToken?.trim();
     _cachedToken = cleanToken;
+    _cachedRefreshToken = cleanRefreshToken;
     _hasLoadedToken = true;
+    _hasLoadedRefreshToken = true;
     await _storage.write(key: _tokenKey, value: cleanToken);
+    if (cleanRefreshToken == null || cleanRefreshToken.isEmpty) {
+      await _storage.delete(key: _refreshTokenKey);
+    } else {
+      await _storage.write(key: _refreshTokenKey, value: cleanRefreshToken);
+    }
   }
 
   @override
   Future<void> clear() async {
     _cachedToken = null;
+    _cachedRefreshToken = null;
     _hasLoadedToken = true;
-    await _storage.delete(key: _tokenKey);
+    _hasLoadedRefreshToken = true;
+    await Future.wait(<Future<void>>[
+      _storage.delete(key: _tokenKey),
+      _storage.delete(key: _refreshTokenKey),
+    ]);
   }
 }

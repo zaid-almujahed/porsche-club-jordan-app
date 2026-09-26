@@ -52,7 +52,11 @@ class ApiAuthRepository implements AuthRepository {
       otp: otp,
       purpose: _loginOtpPurpose,
     );
-    await _tokenStore.write(_extractToken(response));
+    final _SignInTokens tokens = _extractSignInTokens(response);
+    await _tokenStore.write(
+      tokens.token,
+      refreshToken: tokens.refreshToken,
+    );
     try {
       return await _getCurrentUser();
     } catch (_) {
@@ -206,13 +210,10 @@ class ApiAuthRepository implements AuthRepository {
     });
   }
 
-  static String _extractToken(Object? response) {
-    if (response is String && response.trim().isNotEmpty) {
-      return response.trim();
-    }
+  static _SignInTokens _extractSignInTokens(Object? response) {
     final Map<String, dynamic> json = requireJsonMap(
       response,
-      description: 'login response',
+      description: 'login OTP verification response',
     );
     final Object? nested = json['data'];
     final Map<String, dynamic> tokenJson = nested is Map
@@ -220,14 +221,23 @@ class ApiAuthRepository implements AuthRepository {
         : json;
     final String? token = firstString(tokenJson, const <String>[
       'access_token',
-      'token',
-      'bearer_token',
     ]);
-    if (token == null) {
+    final String? refreshToken = firstString(tokenJson, const <String>[
+      'refresh_token',
+    ]);
+    if (token == null || refreshToken == null) {
       throw const AuthenticationException(
-        'The login response did not contain an access token.',
+        'The OTP verification response did not contain access_token and '
+        'refresh_token.',
       );
     }
-    return token;
+    return _SignInTokens(token: token, refreshToken: refreshToken);
   }
+}
+
+class _SignInTokens {
+  const _SignInTokens({required this.token, required this.refreshToken});
+
+  final String token;
+  final String refreshToken;
 }

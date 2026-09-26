@@ -95,7 +95,11 @@ class UserModel extends User {
     if (value == false) return ApplicationStatus.pending;
     final String status = value?.toString().toLowerCase().trim() ?? '';
     if (status.isEmpty) return ApplicationStatus.notSubmitted;
-    if (status == 'active') return ApplicationStatus.approved;
+    if (status == 'active' ||
+        status == 'inactive' ||
+        status == 'expired') {
+      return ApplicationStatus.approved;
+    }
     if (status.contains('pending') || status.contains('review')) {
       return ApplicationStatus.pending;
     }

@@ -7,9 +7,9 @@ import 'package:pcj_v4/shared/widgets/app_widgets.dart';
 Future<bool> showCurrentPasswordDialog({
   required BuildContext context,
   required Listenable animation,
-  required TextEditingController passwordController,
   required ValueChanged<String> onChanged,
-  required Future<bool> Function() onSubmit,
+  required Future<bool> Function(String password) onSubmit,
+  required VoidCallback onCancel,
   required bool Function() isSubmitting,
   required String? Function() errorText,
 }) async {
@@ -19,9 +19,9 @@ Future<bool> showCurrentPasswordDialog({
     useRootNavigator: true,
     builder: (BuildContext context) => _CurrentPasswordDialog(
       animation: animation,
-      passwordController: passwordController,
       onChanged: onChanged,
       onSubmit: onSubmit,
+      onCancel: onCancel,
       isSubmitting: isSubmitting,
       errorText: errorText,
     ),
@@ -29,28 +29,47 @@ Future<bool> showCurrentPasswordDialog({
   return completed ?? false;
 }
 
-class _CurrentPasswordDialog extends StatelessWidget {
+class _CurrentPasswordDialog extends StatefulWidget {
   const _CurrentPasswordDialog({
     required this.animation,
-    required this.passwordController,
     required this.onChanged,
     required this.onSubmit,
+    required this.onCancel,
     required this.isSubmitting,
     required this.errorText,
   });
 
   final Listenable animation;
-  final TextEditingController passwordController;
   final ValueChanged<String> onChanged;
-  final Future<bool> Function() onSubmit;
+  final Future<bool> Function(String password) onSubmit;
+  final VoidCallback onCancel;
   final bool Function() isSubmitting;
   final String? Function() errorText;
 
+  @override
+  State<_CurrentPasswordDialog> createState() =>
+      _CurrentPasswordDialogState();
+}
+
+class _CurrentPasswordDialogState extends State<_CurrentPasswordDialog> {
+  final TextEditingController _passwordController = TextEditingController();
+
+  @override
+  void dispose() {
+    _passwordController.dispose();
+    super.dispose();
+  }
+
   Future<void> _submit(BuildContext context) async {
     FocusScope.of(context).unfocus();
-    final bool completed = await onSubmit();
+    final bool completed = await widget.onSubmit(_passwordController.text);
     if (!completed || !context.mounted) return;
     Navigator.of(context, rootNavigator: true).pop(true);
+  }
+
+  void _cancel(BuildContext context) {
+    widget.onCancel();
+    Navigator.of(context, rootNavigator: true).pop(false);
   }
 
   @override
@@ -71,10 +90,10 @@ class _CurrentPasswordDialog extends StatelessWidget {
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(AppSpacing.xl),
             child: AnimatedBuilder(
-              animation: animation,
+              animation: widget.animation,
               builder: (BuildContext context, Widget? child) {
-                final bool submitting = isSubmitting();
-                final String? error = errorText();
+                final bool submitting = widget.isSubmitting();
+                final String? error = widget.errorText();
                 return Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -98,9 +117,9 @@ class _CurrentPasswordDialog extends StatelessWidget {
                     ),
                     const SizedBox(height: AppSpacing.xl),
                     _PasswordField(
-                      controller: passwordController,
+                      controller: _passwordController,
                       label: 'CURRENT PASSWORD',
-                      onChanged: onChanged,
+                      onChanged: widget.onChanged,
                       autofillHint: AutofillHints.password,
                       onSubmitted: (_) => _submit(context),
                     ),
@@ -124,12 +143,7 @@ class _CurrentPasswordDialog extends StatelessWidget {
                     const SizedBox(height: AppSpacing.sm),
                     SecondaryActionButton(
                       label: 'Cancel',
-                      onPressed: submitting
-                          ? null
-                          : () => Navigator.of(
-                              context,
-                              rootNavigator: true,
-                            ).pop(false),
+                      onPressed: submitting ? null : () => _cancel(context),
                       height: 54,
                     ),
                   ],
@@ -153,6 +167,7 @@ Future<bool> showNewPasswordDialog({
   required Future<bool> Function() onSubmit,
   required bool Function() isSubmitting,
   required String? Function() errorText,
+  VoidCallback? onCancel,
   String title = 'Create New Password',
   String description = 'Enter the new password twice to confirm it.',
   String submitLabel = 'Reset Password',
@@ -170,6 +185,7 @@ Future<bool> showNewPasswordDialog({
       onSubmit: onSubmit,
       isSubmitting: isSubmitting,
       errorText: errorText,
+      onCancel: onCancel,
       title: title,
       description: description,
       submitLabel: submitLabel,
@@ -188,6 +204,7 @@ class _NewPasswordDialog extends StatelessWidget {
     required this.onSubmit,
     required this.isSubmitting,
     required this.errorText,
+    required this.onCancel,
     required this.title,
     required this.description,
     required this.submitLabel,
@@ -201,6 +218,7 @@ class _NewPasswordDialog extends StatelessWidget {
   final Future<bool> Function() onSubmit;
   final bool Function() isSubmitting;
   final String? Function() errorText;
+  final VoidCallback? onCancel;
   final String title;
   final String description;
   final String submitLabel;
@@ -212,6 +230,11 @@ class _NewPasswordDialog extends StatelessWidget {
     if (!completed || !context.mounted) return;
     final NavigatorState navigator = Navigator.of(context, rootNavigator: true);
     if (navigator.canPop()) navigator.pop(true);
+  }
+
+  void _cancel(BuildContext context) {
+    onCancel?.call();
+    Navigator.of(context, rootNavigator: true).pop(false);
   }
 
   @override
@@ -306,10 +329,7 @@ class _NewPasswordDialog extends StatelessWidget {
                           label: cancelLabel!,
                           onPressed: submitting
                               ? null
-                              : () => Navigator.of(
-                                  context,
-                                  rootNavigator: true,
-                                ).pop(false),
+                              : () => _cancel(context),
                           height: 54,
                         ),
                       ],

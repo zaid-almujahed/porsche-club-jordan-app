@@ -188,20 +188,15 @@ class ProfileController extends ChangeNotifier {
   }
 
   Future<bool> updatePhoneNumber(String phoneNumber) async {
+    final String value = phoneNumber.trim();
+    if (value.isEmpty) {
+      _actionError = const AppException('Phone number cannot be empty.');
+      notifyListeners();
+      return false;
+    }
     return _runAccountAction(() async {
-      final User? current = user;
-      if (current == null) {
-        throw const AppException('Load the profile before updating it.');
-      }
-      await _repository.updateProfile(
-        ProfileUpdate(
-          name: current.name,
-          phoneNumber: phoneNumber.trim(),
-          city: current.city,
-          dateOfBirth: current.dateOfBirth,
-        ),
-      );
-      await load(force: true);
+      final User updated = await _repository.updatePhoneNumber(value);
+      _setUser(updated);
     });
   }
 

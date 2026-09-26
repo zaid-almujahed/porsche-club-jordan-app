@@ -14,6 +14,7 @@ class ApplicationStatusPage extends StatelessWidget {
     required this.onContinue,
     required this.onLogOut,
     this.onEditProfile,
+    this.onEditApplication,
   });
 
   final User user;
@@ -21,6 +22,7 @@ class ApplicationStatusPage extends StatelessWidget {
   final VoidCallback onContinue;
   final VoidCallback onLogOut;
   final VoidCallback? onEditProfile;
+  final VoidCallback? onEditApplication;
 
   ApplicationStatus get _status => user.applicationStatus;
 
@@ -95,7 +97,13 @@ class ApplicationStatusPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.canvas,
-      appBar: const PorscheAppBar(title: 'Membership Application'),
+      appBar: PorscheAppBar(
+        title: 'Membership Application',
+        showEdit:
+            _status == ApplicationStatus.pending &&
+            onEditApplication != null,
+        onEdit: onEditApplication,
+      ),
       body: AppPageBody(
         topPadding: _status == ApplicationStatus.denied
             ? 110

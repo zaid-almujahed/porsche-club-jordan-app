@@ -21,10 +21,12 @@ class PorscheAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.showNotifications = false,
     this.showCart = false,
     this.showClose = false,
+    this.showEdit = false,
     this.onBack,
     this.onNotificationsPressed,
     this.onCartPressed,
     this.onClose,
+    this.onEdit,
     this.unreadNotificationCount,
   });
 
@@ -33,10 +35,12 @@ class PorscheAppBar extends StatelessWidget implements PreferredSizeWidget {
   final bool showNotifications;
   final bool showCart;
   final bool showClose;
+  final bool showEdit;
   final VoidCallback? onBack;
   final VoidCallback? onNotificationsPressed;
   final VoidCallback? onCartPressed;
   final VoidCallback? onClose;
+  final VoidCallback? onEdit;
   final ValueListenable<int>? unreadNotificationCount;
 
   @override
@@ -94,7 +98,18 @@ class PorscheAppBar extends StatelessWidget implements PreferredSizeWidget {
               color: AppColors.textPrimary,
             ),
           ),
-        if (showNotifications || showClose) const SizedBox(width: 8),
+        if (showEdit)
+          IconButton(
+            tooltip: 'Edit application',
+            onPressed: onEdit,
+            icon: const Icon(
+              Icons.edit_outlined,
+              size: 23,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        if (showNotifications || showClose || showEdit)
+          const SizedBox(width: 8),
       ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1.0),

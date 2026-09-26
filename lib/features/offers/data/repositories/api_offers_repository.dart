@@ -57,11 +57,16 @@ class ApiOffersRepository implements OffersRepository {
 
   @override
   Future<void> claimOffer(String offerId) async {
+    final String normalizedOfferId = offerId.trim();
+    if (normalizedOfferId.isEmpty) {
+      throw const AppException('The offer ID is missing.');
+    }
     await _apiClient.post(
-      '/member/offers/${Uri.encodeComponent(offerId)}/claim',
+      '/member/offers/${Uri.encodeComponent(normalizedOfferId)}/claim',
+      authenticated: true,
     );
-    _claimedOfferIds.add(offerId);
-    _cache.remove('offers:claimed');
+    _claimedOfferIds.add(normalizedOfferId);
+    _cache.remove('offers:all');
   }
 
   @override

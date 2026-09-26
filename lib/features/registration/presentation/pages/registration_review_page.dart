@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:pcj_v4/core/routing/app_router.dart';
 import 'package:pcj_v4/core/theme/app_theme.dart';
+import 'package:pcj_v4/shared/widgets/app_dialog.dart';
 import 'package:pcj_v4/shared/widgets/app_widgets.dart';
 
 import '../widgets/form_widgets.dart';
@@ -16,10 +17,32 @@ class RegistrationReviewPage extends StatelessWidget {
     super.key,
     required this.controller,
     required this.onCancel,
+    required this.onEdited,
   });
 
   final RegistrationController controller;
   final Future<void> Function() onCancel;
+  final VoidCallback onEdited;
+
+  Future<void> _continue(BuildContext context) async {
+    if (!controller.validateReview()) return;
+    if (!controller.isEditingSubmittedApplication) {
+      context.push(AppRoutes.registerPassword);
+      return;
+    }
+
+    final bool wasUpdated = await controller.updateSubmittedApplication();
+    if (!wasUpdated || !context.mounted) return;
+    await showAppMessageDialog(
+      context: context,
+      title: 'Application Updated',
+      message: 'Your membership application changes were saved successfully.',
+      buttonLabel: 'Return to Status',
+      icon: Icons.check_circle_outline_rounded,
+      iconColor: AppColors.success,
+    );
+    if (context.mounted) onEdited();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -86,12 +109,13 @@ class RegistrationReviewPage extends StatelessWidget {
                 ],
                 const SizedBox(height: 58),
                 PrimaryActionButton(
-                  label: 'Next',
-                  onPressed: () {
-                    if (controller.validateReview()) {
-                      context.push(AppRoutes.registerPassword);
-                    }
-                  },
+                  label: controller.isEditingSubmittedApplication
+                      ? 'Save Changes'
+                      : 'Next',
+                  onPressed: controller.isSubmitting
+                      ? null
+                      : () => _continue(context),
+                  isLoading: controller.isSubmitting,
                   height: 66,
                 ),
               ],

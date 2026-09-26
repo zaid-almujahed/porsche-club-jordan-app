@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
 import 'package:pcj_v4/core/state/async_state.dart';
 import 'package:pcj_v4/shared/domain/entities/offer.dart';
@@ -10,10 +10,12 @@ class OffersController extends ChangeNotifier {
     : _repository = repository;
 
   final OffersRepository _repository;
+  final TextEditingController searchController = TextEditingController();
   AsyncState<List<Offer>> _offers = const AsyncState<List<Offer>>.initial();
   List<Offer> _allOffers = const <Offer>[];
   List<String> _categories = const <String>[];
   String? _selectedCategory;
+  String _searchQuery = '';
   int _requestId = 0;
   final Set<String> _claimingOfferIds = <String>{};
   Object? _actionError;
@@ -22,6 +24,7 @@ class OffersController extends ChangeNotifier {
   List<String> get categories => _categories;
   String? get selectedCategory => _selectedCategory;
   Object? get actionError => _actionError;
+  bool get hasSearchQuery => _searchQuery.isNotEmpty;
   bool isClaiming(String offerId) => _claimingOfferIds.contains(offerId);
 
   Future<void> load({bool force = false}) async {
@@ -34,6 +37,20 @@ class OffersController extends ChangeNotifier {
     _selectedCategory = category;
     if (_offers.hasData) _applyFilter();
     notifyListeners();
+  }
+
+  void search(String value) {
+    final String query = value.trim().toLowerCase();
+    if (_searchQuery == query) return;
+    _searchQuery = query;
+    if (_offers.hasData) _applyFilter();
+    notifyListeners();
+  }
+
+  void clearSearch() {
+    if (_searchQuery.isEmpty && searchController.text.isEmpty) return;
+    searchController.clear();
+    search('');
   }
 
   Future<bool> claimOffer(Offer offer) async {
@@ -94,6 +111,16 @@ class OffersController extends ChangeNotifier {
               if (selected == 'partners') return !offer.isNuqulExclusive;
               return true;
             })
+            .where((Offer offer) {
+              if (_searchQuery.isEmpty) return true;
+              return offer.title.toLowerCase().contains(_searchQuery) ||
+                  offer.description.toLowerCase().contains(_searchQuery) ||
+                  offer.displayPartnerName.toLowerCase().contains(
+                    _searchQuery,
+                  ) ||
+                  offer.location.toLowerCase().contains(_searchQuery) ||
+                  offer.category.toLowerCase().contains(_searchQuery);
+            })
             .toList(growable: false)
           ..sort((Offer left, Offer right) {
             if (left.isClaimed == right.isClaimed) return 0;
@@ -110,8 +137,16 @@ class OffersController extends ChangeNotifier {
     _allOffers = const <Offer>[];
     _categories = const <String>[];
     _selectedCategory = null;
+    _searchQuery = '';
+    searchController.clear();
     _claimingOfferIds.clear();
     _actionError = null;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
   }
 }

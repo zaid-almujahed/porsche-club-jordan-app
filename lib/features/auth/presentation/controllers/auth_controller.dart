@@ -47,6 +47,7 @@ class AuthController extends ChangeNotifier {
   String? get validationError => _validationError;
   String? get otpError => _otpError;
   String? get signInOtpEmail => _signInOtpEmail;
+  User? get pendingSignInUser => _verifiedSignInUser;
   bool get isAuthenticated => currentUser != null;
   bool get isRequestingSignInOtp => _isRequestingSignInOtp;
   bool get isVerifyingSignInOtp => _isVerifyingSignInOtp;

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:pcj_v4/core/routing/app_router.dart';
 
 import 'package:pcj_v4/core/theme/app_theme.dart';
 import 'package:pcj_v4/core/utils/app_formatters.dart';
@@ -18,7 +20,11 @@ class OrdersPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.canvas,
-      appBar: const PorscheAppBar(title: 'My Orders', showBack: true),
+      appBar: PorscheAppBar(
+          title: 'My Orders',
+          showBack: true,
+        onBack: ()=> context.push(AppRoutes.profile),
+      ),
       body: AnimatedBuilder(
         animation: controller,
         builder: (BuildContext context, Widget? child) {

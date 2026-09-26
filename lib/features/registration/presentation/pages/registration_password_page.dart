@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:pcj_v4/core/routing/app_router.dart';
 import 'package:pcj_v4/core/theme/app_theme.dart';
+import 'package:pcj_v4/shared/widgets/app_dialog.dart';
 import 'package:pcj_v4/shared/widgets/app_widgets.dart';
 
 import '../controllers/registration_controller.dart';
@@ -32,6 +33,19 @@ class RegistrationPasswordPage extends StatelessWidget {
     );
 
     if (wasVerified && controller.isEmailVerified && context.mounted) {
+      await showAppMessageDialog(
+        context: context,
+        title: 'Application Submitted',
+        message:
+            'Your membership application was submitted successfully. You may '
+            'edit it while this app session remains open. After leaving this '
+            'session or signing in again, the edit option will no longer be '
+            'available.',
+        buttonLabel: 'View Application Status',
+        icon: Icons.check_circle_outline_rounded,
+        iconColor: AppColors.success,
+      );
+      if (!context.mounted) return;
       onSubmitted();
     }
   }

@@ -32,11 +32,11 @@ class MembershipPaymentPage extends StatelessWidget {
   Future<void> _confirmClose(BuildContext context) async {
     final bool confirmed = await showAppConfirmationDialog(
       context: context,
-      title: 'Sign out?',
+      title: 'Return to Welcome?',
       message:
-          'Your application is approved, but your membership is not active '
-          'until payment is completed. Are you sure you want to sign out?',
-      confirmLabel: 'Sign Out',
+          'Your membership will remain inactive until payment is completed. '
+          'Returning to Welcome will sign you out.',
+      confirmLabel: 'Return to Welcome',
       cancelLabel: 'Stay Here',
       icon: Icons.logout_rounded,
       isDestructive: true,
@@ -90,7 +90,7 @@ class MembershipPaymentPage extends StatelessWidget {
                       ),
                       const SizedBox(height: 48),
                       Text(
-                        'Application Approved',
+                        'Membership Payment Required',
                         textAlign: TextAlign.center,
                         style: AppTextStyles.pageTitle.copyWith(
                           fontSize: 30,
@@ -99,8 +99,8 @@ class MembershipPaymentPage extends StatelessWidget {
                       ),
                       const SizedBox(height: AppSpacing.xs),
                       const Text(
-                        'Complete your payment to activate your Porsche Club '
-                        'Jordan membership.',
+                        'Renew or activate your Porsche Club Jordan membership '
+                        'to continue using member features.',
                         textAlign: TextAlign.center,
                         style: AppTextStyles.bodyLarge,
                       ),
@@ -212,7 +212,7 @@ class MembershipPaymentPage extends StatelessWidget {
                       PrimaryActionButton(
                         label: controller.isPaying
                             ? 'Processing Payment...'
-                            : 'Start Payment',
+                            : 'Continue to Payment',
                         onPressed:
                             controller.isPaying || !controller.state.hasData
                             ? null

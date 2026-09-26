@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:pcj_v4/core/routing/app_router.dart';
 import 'package:pcj_v4/core/theme/app_theme.dart';
 import 'package:pcj_v4/shared/domain/entities/product.dart';
+import 'package:pcj_v4/shared/widgets/app_search_field.dart';
 import 'package:pcj_v4/shared/widgets/app_widgets.dart';
 
 import '../controllers/shop_controller.dart';
@@ -44,6 +45,13 @@ class ShopMainPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
+                AppSearchField(
+                  controller: controller.searchController,
+                  hintText: 'Search the shop',
+                  onChanged: controller.search,
+                  onClear: controller.clearSearch,
+                ),
+                const SizedBox(height: AppSpacing.xl),
                 // if (controller.categories.isNotEmpty)
                 //   _ShopCategories(
                 //     categories: controller.categories,
@@ -55,7 +63,9 @@ class ShopMainPage extends StatelessWidget {
                   state: controller.products,
                   onRetry: () => controller.load(force: true),
                   isEmpty: (List<Product> products) => products.isEmpty,
-                  emptyMessage: 'No products are currently available.',
+                  emptyMessage: controller.hasSearchQuery
+                      ? 'No products match your search.'
+                      : 'No products are currently available.',
                   builder: (BuildContext context, List<Product> products) {
                     return GridView.builder(
                       shrinkWrap: true,

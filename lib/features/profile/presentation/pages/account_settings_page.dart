@@ -86,87 +86,70 @@ class AccountSettingsPage extends StatelessWidget {
 
   Future<void> _changePassword(BuildContext context, String email) async {
     authController.cancelPasswordReset();
-    final TextEditingController currentPasswordController =
-        TextEditingController();
+    final bool currentPasswordVerified = await showCurrentPasswordDialog(
+      context: context,
+      animation: authController,
+      onChanged: authController.onCurrentPasswordChanged,
+      onSubmit: (String password) =>
+          authController.verifyCurrentPasswordForChange(
+            email: email,
+            password: password,
+          ),
+      onCancel: authController.cancelPasswordReset,
+      isSubmitting: () => authController.isVerifyingCurrentPassword,
+      errorText: () => authController.passwordResetError,
+    );
+    if (!context.mounted || !currentPasswordVerified) return;
 
-    try {
-      final bool currentPasswordVerified = await showCurrentPasswordDialog(
-        context: context,
-        animation: authController,
-        passwordController: currentPasswordController,
-        onChanged: authController.onCurrentPasswordChanged,
-        onSubmit: () => authController.verifyCurrentPasswordForChange(
-          email: email,
-          password: currentPasswordController.text,
-        ),
-        isSubmitting: () => authController.isVerifyingCurrentPassword,
-        errorText: () => authController.passwordResetError,
-      );
-      if (!context.mounted) return;
-      if (!currentPasswordVerified) {
-        authController.cancelPasswordReset();
-        return;
-      }
+    final bool codeWasRequested = await showNewPasswordDialog(
+      context: context,
+      animation: authController,
+      passwordController: authController.newPasswordController,
+      confirmationController: authController.confirmNewPasswordController,
+      onChanged: authController.onNewPasswordChanged,
+      onSubmit: () => authController.requestPasswordChangeCode(email),
+      onCancel: authController.cancelPasswordReset,
+      isSubmitting: () => authController.isRequestingPasswordReset,
+      errorText: () => authController.passwordResetError,
+      title: 'Choose New Password',
+      description:
+          'Enter the new password twice. A confirmation code will then be '
+          'sent to your account email before the change is saved.',
+      submitLabel: 'Send Confirmation Code',
+      cancelLabel: 'Cancel',
+    );
+    if (!context.mounted || !codeWasRequested) return;
 
-      final bool codeWasRequested = await showNewPasswordDialog(
-        context: context,
-        animation: authController,
-        passwordController: authController.newPasswordController,
-        confirmationController: authController.confirmNewPasswordController,
-        onChanged: authController.onNewPasswordChanged,
-        onSubmit: () => authController.requestPasswordChangeCode(email),
-        isSubmitting: () => authController.isRequestingPasswordReset,
-        errorText: () => authController.passwordResetError,
-        title: 'Choose New Password',
-        description:
-            'Enter the new password twice. A confirmation code will then be '
-            'sent to your account email before the change is saved.',
-        submitLabel: 'Send Confirmation Code',
-        cancelLabel: 'Cancel',
-      );
-      if (!context.mounted) return;
-      if (!codeWasRequested) {
-        authController.cancelPasswordReset();
-        return;
-      }
+    final bool passwordWasChanged = await showOtpVerificationDialog(
+      context: context,
+      animation: authController,
+      email: email,
+      otpController: authController.passwordResetOtpController,
+      onOtpChanged: authController.onPasswordResetOtpChanged,
+      onVerify: authController.verifyAndResetPassword,
+      onResend: authController.resendPasswordResetOtp,
+      onChangeEmail: authController.cancelPasswordReset,
+      isVerifying: () =>
+          authController.isVerifyingPasswordResetOtp ||
+          authController.isResettingPassword,
+      isResending: () => authController.isResendingPasswordResetOtp,
+      errorText: () => authController.passwordResetError,
+      instructions:
+          'Use the most recent password-reset code to confirm your identity.',
+      verifyButtonLabel: 'Confirm Password Change',
+      dialogTitle: 'Confirm Your Identity',
+      backButtonLabel: 'Cancel Password Change',
+    );
+    if (!context.mounted || !passwordWasChanged) return;
 
-      final bool passwordWasChanged = await showOtpVerificationDialog(
-        context: context,
-        animation: authController,
-        email: email,
-        otpController: authController.passwordResetOtpController,
-        onOtpChanged: authController.onPasswordResetOtpChanged,
-        onVerify: authController.verifyAndResetPassword,
-        onResend: authController.resendPasswordResetOtp,
-        onChangeEmail: authController.cancelPasswordReset,
-        isVerifying: () =>
-            authController.isVerifyingPasswordResetOtp ||
-            authController.isResettingPassword,
-        isResending: () => authController.isResendingPasswordResetOtp,
-        errorText: () => authController.passwordResetError,
-        instructions:
-            'Use the most recent password-reset code to confirm your identity.',
-        verifyButtonLabel: 'Confirm Password Change',
-        dialogTitle: 'Confirm Your Identity',
-        backButtonLabel: 'Cancel Password Change',
-      );
-      if (!context.mounted) return;
-      if (!passwordWasChanged) {
-        authController.cancelPasswordReset();
-        return;
-      }
-
-      await showAppMessageDialog(
-        context: context,
-        title: 'Password Changed',
-        message: 'Your password was changed successfully.',
-        buttonLabel: 'Done',
-        icon: Icons.check_circle_outline_rounded,
-        iconColor: AppColors.success,
-      );
-    } finally {
-      currentPasswordController.dispose();
-    }
+    await showAppMessageDialog(
+      context: context,
+      title: 'Password Changed',
+      message: 'Your password was changed successfully.',
+      buttonLabel: 'Done',
+      icon: Icons.check_circle_outline_rounded,
+      iconColor: AppColors.success,
+    );
   }
 
   Future<void> _editPhone(BuildContext context, String current) async {
@@ -178,7 +161,8 @@ class AccountSettingsPage extends StatelessWidget {
       hintText: 'Enter your phone number',
       keyboardType: TextInputType.phone,
     );
-    if (value != null) await controller.updatePhoneNumber(value);
+    if (!context.mounted || value == null) return;
+    await controller.updatePhoneNumber(value);
   }
 
   Future<void> _deleteAccount(BuildContext context) async {
@@ -195,6 +179,7 @@ class AccountSettingsPage extends StatelessWidget {
       icon: Icons.delete_forever_outlined,
       isDestructive: true,
     );
+    if (!context.mounted) return;
     if (confirmed && await controller.deleteAccount()) {
       onAccountDeleted();
     }
